@@ -1,0 +1,9 @@
+ENVIRONMENT=dev
+TESTING=0
+DATABASE_URL=mysql://user:password@db:3306/econowallet
+
+SQL_DATABASE=econowallet
+SQL_USER=user
+SQL_PASSWORD=password
+SQL_HOST=db
+SQL_PORT=3306
