@@ -16,6 +16,7 @@ class CtrlArqExcelContabilSchema(BaseModel):
     cod_conta : Optional[str]
     sheet : Optional[str]
     nome_arquivo : Optional[str]   
+    tipo_relatorio: Optional[str]   
     total_registros : Optional[int] = None
     data_cadastrada : Optional[datetime] = None
     
