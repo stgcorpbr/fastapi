@@ -71,7 +71,7 @@ async def get_lista_files_excel(cliente_id: int, tipo: str, current_user:  usuar
         return lista
 
 #GET only CLients
-@cache()
+@cache(namespace="only_clients", expire=30)
 @router.get('/only_clients/{cliente_id}', response_model=List[cliente_schema.OnlyClienteSchema])
 async def get_only_clients(current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:
