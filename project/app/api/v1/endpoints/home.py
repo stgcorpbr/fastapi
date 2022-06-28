@@ -50,7 +50,7 @@ async def get_user(cliente_id: int, current_user:  usuario_schema.AuthUserSchema
 
 # GET Lista Arquivos Relatorios
 @router.get('/lista_files_excel/{cliente_id}/{tipo}', response_model=List[relatorio_schema.CtrlArqExcelContabilSchema])
-async def get_lista_files_excel(cliente_id: int, tipo: str, db: AsyncSession = Depends(deps.get_session_gerencial)):
+async def get_lista_files_excel(cliente_id: int, tipo: str, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     
     async with db as session:
         query = select(relatorio_model.CtrlArqExcelContabil).filter(relatorio_model.CtrlArqExcelContabil.id_user == int(cliente_id), relatorio_model.CtrlArqExcelContabil.tipo_relatorio == str(tipo))
