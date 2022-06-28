@@ -110,7 +110,7 @@ async def get_DwIcmsIpiEntradas(db: AsyncSession = Depends(deps.get_session_gere
 
 # GET data inicial empresa
 @router.get('/get_data_empresa/{base}/{tipo}')
-@cache(expire=60,coder=JsonCoder)
+@cache(expire=60, namespace="data_empresa")
 async def get_empresa_dataIni(base: str, tipo: str, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:
         if tipo == 'ajuste_apuracao_icms' or tipo == 'apuracao_icms_ipi'or tipo == 'gerar_sped_fiscal':
