@@ -85,13 +85,79 @@ async def get_DwIcmsIpiEntradas(db: AsyncSession = Depends(deps.get_session_gere
         
         return clientes
 
+# GET data inicial empresa
+@router.get('/get_data_empresa/{base}/{tipo}')
+async def get_empresa_dataIni(base: str, tipo: str, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    async with db as session:
+        if tipo == 'ajuste_apuracao_icms' or tipo == 'apuracao_icms_ipi'or tipo == 'gerar_sped_fiscal':
+            sql = f"""            
+                SELECT DISTINCT
+                    DATE_FORMAT( DATA_INI, "%Y" ) DATA_INI 
+                FROM
+                    `DB_{base}`.`sped_icms_ipi_ctrl` 
+                WHERE
+                    `ENVIO` = '1' 
+                    AND `CANCELADO` IS NULL 
+                    AND `DW_ENTRADAS` = '1' 
+                    OR `DW_SAIDAS` = '1'
+            """
+        elif tipo == 'apuracao_cred_pis_cofins' or tipo == 'apuracao_deb_pis_cofins' or tipo == 'gerar_registros_efd':        
+            sql = f"""            
+                SELECT DISTINCT
+                    DATE_FORMAT( DATA_INI, "%Y" ) DATA_INI 
+                FROM
+                    `DB_{base}`.`sped_pis_cofins_ctrl` 
+                WHERE
+                    `ENVIO` = '1' 
+                    AND `CANCELADO` IS NULL 
+                    AND `DW_ENTRADAS` = '1' 
+                    OR `DW_SAIDAS` = '1'               
+            """
+        elif tipo == 'balancete_contabil' or tipo == 'razao_contabil' or tipo == 'b_contabil_saldo_final_conta_i355':        
+            sql = f"""            
+                SELECT DISTINCT
+                    DATE_FORMAT( DATA_INI, "%Y" ) DATA_INI 
+                FROM
+                    `DB_{base}`.`sped_contabil_ctrl` 
+                WHERE
+                    `ENVIO` = '1' 
+                    AND `CANCELADO` IS NULL 
+            """
+        elif tipo == 'conciliar_sped_efd':            
+            sql = f"""            
+                SELECT DISTINCT
+                    DATE_FORMAT( DATA_INI, "%Y" ) DATA_INI 
+                FROM
+                    `DB_{base}`.`sped_pis_cofins_ctrl` 
+                WHERE
+                    `ENVIO` = '1' 
+                    AND `CANCELADO` IS NULL 
+                    AND `DW_ENTRADAS` = '1' 
+                    OR `DW_SAIDAS` = '1' UNION
+                SELECT DISTINCT
+                    DATE_FORMAT( DATA_INI, "%Y" ) DATA_INI 
+                FROM
+                    `DB_{base}`.`sped_icms_ipi_ctrl` 
+                WHERE
+                    `ENVIO` = '1' 
+                    AND `CANCELADO` IS NULL 
+                    AND `DW_ENTRADAS` = '1' 
+                    OR `DW_SAIDAS` = '1'
+            """
+
+        result = await session.execute(sa.text(sql))
+        
+        return {               
+            'data_ini': result.fetchall()
+        }
+
 #GET get_combo_charts
 @router.get('/get_combo_charts/{base}')
 async def get_filial_uf_dataIni(base: str, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:
         sql = f"""            
                 SELECT DISTINCT `CNPJ_FILIAL` FROM `DB_{base}`.`dw_pis_cofins_entradas`;
-            """
+            """        
         
         result = await session.execute(sa.text(sql))
         d_cnpj_filial = result.fetchall()
