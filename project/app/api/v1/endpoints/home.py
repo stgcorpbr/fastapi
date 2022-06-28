@@ -85,6 +85,41 @@ async def get_DwIcmsIpiEntradas(db: AsyncSession = Depends(deps.get_session_gere
         
         return clientes
 
+#GET get_combo_charts
+@router.get('/get_combo_charts/{base}')
+async def get_filial_uf_dataIni(base: str, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    async with db as session:
+        sql = f"""            
+                SELECT DISTINCT `CNPJ_FILIAL` FROM `DB_{base}`.`dw_pis_cofins_entradas`;
+            """
+        
+        result = await session.execute(sa.text(sql))
+        d_cnpj_filial = result.fetchall()
+
+        sql = f"""            
+            SELECT DISTINCT DATE_FORMAT( DATA_INI, "%Y" ) DATA_INI FROM `DB_{base}`.`sped_icms_ipi_ctrl` WHERE `ENVIO` = '1' AND `CANCELADO` IS NULL AND `DW_ENTRADAS` = '1' OR `DW_SAIDAS` = '1'
+            UNION
+            SELECT DISTINCT DATE_FORMAT( DATA_INI, "%Y" ) DATA_INI FROM `DB_{base}`.`sped_pis_cofins_ctrl` WHERE `ENVIO` = '1' AND `CANCELADO` IS NULL AND `DW_ENTRADAS` = '1' OR `DW_SAIDAS` = '1';
+            """
+        
+        result = await session.execute(sa.text(sql))
+        d_data_ini = result.fetchall()
+
+        sql = f"""            
+                SELECT DISTINCT `UF` FROM `DB_{base}`.`sped_icms_ipi_ctrl` WHERE `ENVIO` = '1' AND `CANCELADO` IS NULL AND `DW_ENTRADAS` = '1' OR `DW_SAIDAS` = '1';
+                
+            """
+        
+        result = await session.execute(sa.text(sql))
+        d_uf = result.fetchall()
+
+        dados = {
+                'cnpj_filial':d_cnpj_filial,
+                'uf': d_uf,
+                'data_ini': d_data_ini
+            }
+        
+        return dados   
 
 html = """
 <!DOCTYPE html>

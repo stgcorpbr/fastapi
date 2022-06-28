@@ -48,3 +48,6 @@ settings: Settings = Settings()
 
 # sudo /apps/fastapi/venv/bin/gunicorn --certfile=/etc/letsencrypt/live/stgapi.cf/fullchain.pem --keyfile=/etc/letsencrypt/live/stgapi.cf/privkey.pem  main:app -b 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker -w 4 --graceful-timeout 0 --access-logfile /apps/logs/gufapi/app_log
 # sudo /apps/fastapi/venv/bin/gunicorn main:app -b 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker -w 4 --graceful-timeout 0 --access-logfile /apps/logs/gufapi/app_log
+# > Connecting to: wss://stgapi.cf:8000/api/v1/clientes/ws/1656364243157
+# https://stgapi.cf:8000/api/v1/clientes/html/
+# celery -A main.celery_ worker -l info --pool=prefork
