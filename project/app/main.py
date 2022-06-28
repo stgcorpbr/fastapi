@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import aioredis
-from fastapi_cache import FastAPICache
+from fastapi_cache import FastAPICache, Coder
 from fastapi_cache.backends.redis import RedisBackend
 app: FastAPI = FastAPI(title='Cliente API - FastApi SQL Model', debug=True)
 
@@ -39,7 +39,7 @@ celery_.conf.imports = [
 
 @app.on_event("startup")
 async def startup():
-    redis =  aioredis.from_url("redis://localhost", encoding="utf8", decode_responses=True)
+    redis =  aioredis.from_url(f"redis://{settings.REDIS_HOST}", encoding="utf8", decode_responses=True)
     FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
 
 if __name__ == '__main__':

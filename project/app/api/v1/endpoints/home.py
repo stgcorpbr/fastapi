@@ -1,4 +1,5 @@
 
+from datetime import date, datetime, timezone
 import sqlalchemy as sa
 
 from typing import List
@@ -12,6 +13,7 @@ from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schem
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse
 from fastapi.responses import JSONResponse
+from fastapi_cache import JsonCoder
 from fastapi import WebSocket, WebSocketDisconnect, FastAPI, APIRouter, status, Depends, HTTPException, Response
 
 
@@ -28,6 +30,12 @@ Select.inherit_cache = True # type: ignore
 # Fim Bypass
 
 router = APIRouter()
+
+@router.get("/date")
+@cache(namespace="test", expire=20)
+async def get_data():
+    data_e_hora_atuais = datetime.now()    
+    return data_e_hora_atuais
 
 # POST Login
 @router.post('/login')
@@ -63,7 +71,7 @@ async def get_lista_files_excel(cliente_id: int, tipo: str, current_user:  usuar
         return lista
 
 #GET only CLients
-@cache(expire=3600)
+@cache()
 @router.get('/only_clients/{cliente_id}', response_model=List[cliente_schema.OnlyClienteSchema])
 async def get_only_clients(current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:
@@ -102,7 +110,7 @@ async def get_DwIcmsIpiEntradas(db: AsyncSession = Depends(deps.get_session_gere
 
 # GET data inicial empresa
 @router.get('/get_data_empresa/{base}/{tipo}')
-@cache(expire=3600)
+@cache(expire=60,coder=JsonCoder)
 async def get_empresa_dataIni(base: str, tipo: str, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:
         if tipo == 'ajuste_apuracao_icms' or tipo == 'apuracao_icms_ipi'or tipo == 'gerar_sped_fiscal':
