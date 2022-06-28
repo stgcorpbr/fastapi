@@ -14,6 +14,9 @@ from fastapi.responses import HTMLResponse
 from fastapi.responses import JSONResponse
 from fastapi import WebSocket, WebSocketDisconnect, FastAPI, APIRouter, status, Depends, HTTPException, Response
 
+
+from fastapi_cache.decorator import cache
+
 from celery import Celery
 
 
@@ -60,6 +63,7 @@ async def get_lista_files_excel(cliente_id: int, tipo: str, current_user:  usuar
         return lista
 
 #GET only CLients
+@cache()
 @router.get('/only_clients/{cliente_id}', response_model=List[cliente_schema.OnlyClienteSchema])
 async def get_only_clients(current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:
@@ -272,6 +276,8 @@ async def websocket_endpoint(websocket: WebSocket, client_id: int):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
         await manager.broadcast(f"Client #{client_id} left the chat")
+
+
 
 
 # def write_notification(email: str, message=""):
