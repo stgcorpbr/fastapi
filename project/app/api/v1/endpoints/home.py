@@ -63,7 +63,7 @@ async def get_lista_files_excel(cliente_id: int, tipo: str, current_user:  usuar
         return lista
 
 #GET only CLients
-@cache()
+@cache(expire=3600)
 @router.get('/only_clients/{cliente_id}', response_model=List[cliente_schema.OnlyClienteSchema])
 async def get_only_clients(current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:
@@ -102,6 +102,7 @@ async def get_DwIcmsIpiEntradas(db: AsyncSession = Depends(deps.get_session_gere
 
 # GET data inicial empresa
 @router.get('/get_data_empresa/{base}/{tipo}')
+@cache(expire=3600)
 async def get_empresa_dataIni(base: str, tipo: str, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:
         if tipo == 'ajuste_apuracao_icms' or tipo == 'apuracao_icms_ipi'or tipo == 'gerar_sped_fiscal':
