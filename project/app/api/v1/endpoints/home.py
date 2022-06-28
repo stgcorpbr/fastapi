@@ -6,9 +6,9 @@ from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core import deps, security
-from models import home_model, user_model
+from models import home_model, user_model, relatorio_model
 from core.auth import autenticar, criar_token_acesso
-from schemas import cliente_schema, base_schema, usuario_schema
+from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schema
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse
 from fastapi.responses import JSONResponse
@@ -47,6 +47,17 @@ async def get_user(cliente_id: int, current_user:  usuario_schema.AuthUserSchema
         print('acessoLiberado')        
         return user    
 
+
+# GET Lista Arquivos Relatorios
+@router.get('/lista_files_excel/{cliente_id}/{tipo}', response_model=List[relatorio_schema.CtrlArqExcelContabilSchema])
+async def get_lista_files_excel(db: AsyncSession = Depends(deps.get_session_gerencial)):
+    
+    async with db as session:
+        query = select(relatorio_model.CtrlArqExcelContabil)
+        result = await session.execute(query)
+        lista: List[relatorio_model.CtrlArqExcelContabil] = result.scalars().unique().all()
+
+        return lista
 
 #GET only CLients
 @router.get('/only_clients/{cliente_id}', response_model=List[cliente_schema.OnlyClienteSchema])
