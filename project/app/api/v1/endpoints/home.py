@@ -1,5 +1,6 @@
 
 from datetime import date, datetime, timezone
+import json
 import sqlalchemy as sa
 
 from typing import List
@@ -116,7 +117,7 @@ async def get_DwIcmsIpiEntradas(db: AsyncSession = Depends(deps.get_session_gere
 async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:
         dados = await info.json()
-        dados = dados['post_data']
+        dados = json.loads(dados['post_data'])
         base = dados.get('base')
 
         value = {
