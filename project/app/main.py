@@ -12,7 +12,7 @@ from typing import List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Response
 from fastapi_redis_cache import FastApiRedisCache, cache
 from sqlalchemy.orm import Session
-
+from sqlalchemy.ext.asyncio import AsyncSession
 app: FastAPI = FastAPI(title='Cliente API - FastApi SQL Model', debug=True)
 
 
@@ -47,7 +47,7 @@ def startup():
         host_url=os.environ.get("REDIS_URL", LOCAL_REDIS_URL),
         prefix="myapi-cache",
         response_header="X-MyAPI-Cache",
-        ignore_arg_types=[Request, Response]
+        ignore_arg_types=[Request, Response, AsyncSession, Session]
     )
 
 if __name__ == '__main__':
