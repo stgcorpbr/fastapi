@@ -47,7 +47,7 @@ def startup():
         host_url=os.environ.get("REDIS_URL", LOCAL_REDIS_URL),
         prefix="myapi-cache",
         response_header="X-MyAPI-Cache",
-        ignore_arg_types=[Request, Response, Session]
+        ignore_arg_types=[Request, Response]
     )
 
 if __name__ == '__main__':
