@@ -13,7 +13,7 @@ from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schem
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse
 from fastapi.responses import JSONResponse
-from fastapi import WebSocket, WebSocketDisconnect, FastAPI, APIRouter, status, Depends, HTTPException, Response
+from fastapi import Request, WebSocket, WebSocketDisconnect, FastAPI, APIRouter, status, Depends, HTTPException, Response
 from fastapi_redis_cache import FastApiRedisCache, cache
 from fastapi_redis_cache import cache_one_minute
 
@@ -26,6 +26,10 @@ from sqlmodel.sql.expression import Select, SelectOfScalar
 SelectOfScalar.inherit_cache = True # type: ignore
 Select.inherit_cache = True # type: ignore
 # Fim Bypass
+
+def convertData(data_string):
+    data = datetime.strptime(data_string, '%d-%m-%Y').date()
+    return str(data.strftime('%Y-%m-%d'))
 
 router = APIRouter()
 
@@ -105,6 +109,55 @@ async def get_DwIcmsIpiEntradas(db: AsyncSession = Depends(deps.get_session_gere
         clientes = result.fetchall()
         
         return clientes
+
+# GET All Relatorios
+@router.post('/ajuste_apuracao_icms/')
+@cache(expire=60)
+async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    async with db as session:
+        dados = await info.json()
+        dados = dados['post_data']
+        base = dados.get('base')
+
+        value = {
+            'sql_data' : '',        
+        }
+
+        if len(dados.get('data_ini')) > 0 and len(dados.get('data_fim')) > 0:
+            value['sql_data'] = f""" 
+                AND sped_icms_ipi_ctrl.DATA_INI 
+                BETWEEN '{ convertData(dados.get('data_ini'))}' AND '{ convertData(dados.get('data_fim'))}' 
+            """
+        sql = f"""
+            SELECT
+                COUNT(*) as qtd
+            from
+                `DB_{base}`.sped_icms_ipi_ctrl
+                INNER JOIN
+                `DB_{base}`.sped_icms_ipi_E111
+                ON 
+                    sped_icms_ipi_ctrl.ID_SPEDFIS_CTRL_REG_0000 = sped_icms_ipi_E111.ID_SPEDFIS_CTRL_REG_0000
+            WHERE 
+                sped_icms_ipi_ctrl.ENVIO = 1 AND
+                sped_icms_ipi_ctrl.CANCELADO IS NULL 
+                {value['sql_data']}                    
+        """ 
+
+        result = await session.execute(sa.text(sql))
+        qtd = result.scalar_one_or_none()
+        data_ =  'Perfeito para o excel'
+        erro = False
+
+        if int(qtd) > 1000000:
+            data_ = 'Acima do excel'
+            erro = True
+        
+        return {
+            "erro": erro, 
+            "data": data_,
+            "rst": str(qtd)
+        }     
+
 
 # GET data inicial empresa
 @router.get('/get_data_empresa/{base}/{tipo}')
