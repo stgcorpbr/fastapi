@@ -63,7 +63,11 @@ class ConnectionManager:
         print('board broadcast', len(self.active_connections), ' conections')
         for connection in self.active_connections:
             try:
-                await connection.send_text(message)
+                if connection.client_state.value == 1:
+                    await connection.send_text(message)
+                elif connection.client_state.value == 2:
+                    print('conexão removida: ', connection)
+                    self.active_connections.remove(connection)
             except Exception as e:
                 print('Erro de exception:', e, 'msg: ', message, 'conect:', self.active_connections) 
                 pass
