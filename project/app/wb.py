@@ -59,8 +59,8 @@ class ConnectionManager:
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
-        print(self.active_connections)
-        print('board broadcast', len(self.active_connections), ' conections')
+        # print(self.active_connections)
+        # print('board broadcast', len(self.active_connections), ' conections')
         for connection in self.active_connections:
             try:
                 if connection.client_state.value == 1:
