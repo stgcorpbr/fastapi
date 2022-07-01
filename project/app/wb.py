@@ -58,6 +58,7 @@ class ConnectionManager:
         await websocket.send_text(message)
 
     async def broadcast(self, message: str):
+        print(self.active_connections)
         print('board broadcast')
         for connection in self.active_connections:
             try:
