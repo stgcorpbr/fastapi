@@ -1,22 +1,45 @@
-import random
 import os
+import random
 
-from datetime import datetime
 from pathlib import Path
-from core import utils
+from datetime import datetime
 
-
-from celery import shared_task
-from sqlalchemy import create_engine
-
-from core.configs import settings
-from . import mail
-
-from websocket import create_connection
+from celery import Celery, shared_task
+from celery.utils.log import get_task_logger
+from celery.schedules  import crontab
 
 import pandas as pd
 from pyexcelerate import Workbook
 
+from websocket import create_connection
+from sqlalchemy import create_engine
+
+from core.configs import settings
+from core import utils
+from . import mail
+
+# Initialize celery
+celery_ = Celery(
+    'tasks',
+    broker=f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}",
+    backend=f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}"
+)
+
+# Create logger - enable to display messages on task logger
+celery_log = get_task_logger(__name__)
+
+celery_.conf.imports = [
+    'core.tasks'
+]
+
+celery_.conf.update(
+    {
+        "task_routes": {
+            "worker.alert_celery": {"queue": "piport-celery"},
+            "worker.schedule_task": {"queue": "beat-queue"},
+        }
+    }
+)
 
 # URL_CONNECT = "mysql+aiomysql://userdb:SysDb123#ee@stgbd.cf"
 URL_CONNECT = "mysql+pymysql://userdb:SysDb123#ee@stgbd.cf"
@@ -33,6 +56,26 @@ def notify(msg, ws, rs):
         ws.send(str(x))
     except:
         pass
+
+
+@celery_.on_after_configure.connect
+def schedule_periodic_tasks(sender, **kwargs):
+
+    sender.add_periodic_task(10.0, test.s('hello'), name='add every 10')
+
+    sender.add_periodic_task(5.0, test.s('world'), expires=10)
+
+    # Executes every Monday morning at 7:30 am
+    sender.add_periodic_task(
+        crontab(minute='*/1'),
+        test.s('email'),
+    )
+
+@celery_.task
+def test(arg):
+    print(arg)
+    # Display log    
+    celery_log.info(f"Order Complete!")
 
 @shared_task
 def send_email(email):

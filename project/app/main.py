@@ -1,6 +1,5 @@
 import os
 
-from celery import Celery
 from fastapi import FastAPI
 from core.configs import settings
 from api.v1.api import api_router
@@ -23,19 +22,7 @@ app.add_middleware(
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-
-celery_ = Celery(
-    __name__,
-    broker=f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}",
-    backend=f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/{settings.REDIS_DB}"
-)
-
-celery_.conf.imports = [
-    'core.tasks'
-]
-
 LOCAL_REDIS_URL = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}"
-
 
 @app.on_event("startup")
 async def startup():

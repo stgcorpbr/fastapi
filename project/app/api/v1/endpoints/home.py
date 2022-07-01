@@ -1,5 +1,5 @@
 
-from datetime import date, datetime, timezone
+from datetime import datetime
 import json
 import sqlalchemy as sa
 
@@ -7,18 +7,37 @@ from typing import List
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core import deps, security
+from core import deps
 from models import home_model, user_model, relatorio_model
 from core.auth import autenticar, criar_token_acesso
+from core.tasks import ajuste_apuracao_icms_task
+
+
 from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schema
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi.responses import HTMLResponse
 from fastapi.responses import JSONResponse
-from fastapi import Request, WebSocket, WebSocketDisconnect, FastAPI, APIRouter, status, Depends, HTTPException, Response
-from fastapi_redis_cache import FastApiRedisCache, cache
+from fastapi import Request, APIRouter, WebSocket, status, Depends, HTTPException
+from fastapi_redis_cache import cache
 from fastapi_redis_cache import cache_one_minute
+from fastapi.responses import FileResponse
+import requests
 
-from celery import Celery
+import socketio
+
+sio = socketio.Client()
+
+@sio.event
+def connect():
+    print('connection established')
+
+@sio.event
+def my_message(data):
+    print('message received with ', data)
+    sio.emit('my response', {'response': 'my response'})
+
+@sio.event
+def disconnect():
+    print('disconnected from server')
 
 
 # Bypass warning SQLmodel select
@@ -35,10 +54,9 @@ def convertData(data_string):
 router = APIRouter()
 
 @router.get("/date")
-@cache(expire=60)
-async def get_data():
-    data_e_hora_atuais = datetime.now()    
-    return data_e_hora_atuais
+async def get_data():  
+    sio.connect('http://localhost:6000')
+    sio.emit('my response', {'response': 'my response'})
 
 # POST Login
 @router.post('/login')
@@ -111,7 +129,21 @@ async def get_DwIcmsIpiEntradas(db: AsyncSession = Depends(deps.get_session_gere
         
         return clientes
 
-# GET All Relatorios
+# POST Relatorio excel_ajuste_apuracao_icms
+@router.post('/excel_ajuste_apuracao_icms/')
+# @cache(expire=60)
+async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
+    dados = await info.json()
+    dados = json.loads(dados['post_data'])
+    base = dados.get('base')
+    task = ajuste_apuracao_icms_task.delay(dados)
+    print(task.get(), 'em teste')
+
+    return FileResponse(path=task.get(), filename=task.get(), media_type='application/xlsx')
+    return task
+
+
+# POST All Relatorios
 @router.post('/ajuste_apuracao_icms/')
 @cache(expire=60)
 async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
@@ -262,83 +294,6 @@ async def get_filial_uf_dataIni(base: str, current_user:  usuario_schema.AuthUse
             }
         
         return dados   
-
-html = """
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Chat</title>
-    </head>
-    <body>
-        <h1>WebSocket Chat</h1>
-        <h2>Your ID: <span id="ws-id"></span></h2>
-        <form action="" onsubmit="sendMessage(event)">
-            <input type="text" id="messageText" autocomplete="off"/>
-            <button>Send</button>
-        </form>
-        <ul id='messages'>
-        </ul>
-        <script>
-            var client_id = Date.now()
-            document.querySelector("#ws-id").textContent = client_id;
-            var ws = new WebSocket(`wss://stgapi.cf:8000/api/v1/clientes/ws/1656364243157`);
-            ws.onmessage = function(event) {
-                var messages = document.getElementById('messages')
-                var message = document.createElement('li')
-                var content = document.createTextNode(event.data)
-                message.appendChild(content)
-                messages.appendChild(message)
-            };
-            function sendMessage(event) {
-                var input = document.getElementById("messageText")
-                ws.send(input.value)
-                input.value = ''
-                event.preventDefault()
-            }
-        </script>
-    </body>
-</html>
-"""
-
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
-
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
-
-
-manager = ConnectionManager()
-
-@router.get("/html/")
-async def get():
-    return HTMLResponse(html)
-
-
-@router.websocket("/ws/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, client_id: int):
-    await manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-            await manager.send_personal_message(f"You wrote: {data}", websocket)
-            await manager.broadcast(f"Client #{client_id} says: {data}")
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-        await manager.broadcast(f"Client #{client_id} left the chat")
-
-
 
 
 # def write_notification(email: str, message=""):

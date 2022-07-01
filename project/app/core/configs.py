@@ -51,3 +51,4 @@ settings: Settings = Settings()
 # > Connecting to: wss://stgapi.cf:8000/api/v1/clientes/ws/1656364243157
 # https://stgapi.cf:8000/api/v1/clientes/html/
 # celery -A main.celery_ worker -l info --pool=prefork
+# celery -A core.celery_worker.celery_ worker -l info -E -B --schedule=/tmp/celerybeat-schedule --pool=prefork
