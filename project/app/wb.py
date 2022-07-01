@@ -64,8 +64,8 @@ class ConnectionManager:
         for connection in self.active_connections:
             try:
                 await connection.send_text(message)
-            except:
-                print('Erro de exception')
+            except Exception as e:
+                print('Erro de exception:', e)
                 pass
 
 
