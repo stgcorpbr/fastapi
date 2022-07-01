@@ -2,3 +2,6 @@ __pycache__
 .vscode
 venv
 pip
+project/app/core/sktioServer.py
+project/app/core/cliente_test.py
+project/app/core/wbskt_srv.py

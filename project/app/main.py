@@ -1,16 +1,12 @@
-from distutils.log import debug
 import os
-from turtle import title
+
 from celery import Celery
 from fastapi import FastAPI
-from fastapi import WebSocket
-from fastapi.responses import HTMLResponse
 from core.configs import settings
 from api.v1.api import api_router
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Response
-from fastapi_redis_cache import FastApiRedisCache, cache
+from fastapi import FastAPI, Request, Response
+from fastapi_redis_cache import FastApiRedisCache
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 app: FastAPI = FastAPI(title='Cliente API - FastApi SQL Model', debug=True)
@@ -40,8 +36,9 @@ celery_.conf.imports = [
 
 LOCAL_REDIS_URL = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}"
 
+
 @app.on_event("startup")
-def startup():
+async def startup():
     redis_cache = FastApiRedisCache()
     redis_cache.init(
         host_url=os.environ.get("REDIS_URL", LOCAL_REDIS_URL),
@@ -49,6 +46,7 @@ def startup():
         response_header="X-MyAPI-Cache",
         ignore_arg_types=[Request, Response, AsyncSession, Session]
     )
+
 
 if __name__ == '__main__':
     import uvicorn
