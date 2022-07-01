@@ -45,6 +45,7 @@ html = """
 
 class ConnectionManager:
     def __init__(self):
+        print('ele está limpando')
         self.active_connections: List[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
