@@ -59,7 +59,7 @@ class ConnectionManager:
 
     async def broadcast(self, message: str):
         print(self.active_connections)
-        print('board broadcast')
+        print('board broadcast', len(self.active_connections), ' conections')
         for connection in self.active_connections:
             try:
                 await connection.send_text(message)
