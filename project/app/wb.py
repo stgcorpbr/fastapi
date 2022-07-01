@@ -86,10 +86,10 @@ async def websocket_endpoint(websocket: WebSocket, client_id: int):
             await manager.broadcast(f"Client #{client_id} says: {str(data)}")
             if data == "fim":
                 await manager.broadcast(f"Client #{client_id} left the chat")
-                manager.disconnect(websocket)
+                # manager.disconnect(websocket)
 
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        # manager.disconnect(websocket)
         await manager.broadcast(f"Client #{client_id} left the chat")
 
 if __name__ == '__main__':
