@@ -10,11 +10,22 @@ from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 app: FastAPI = FastAPI(title='Cliente API - FastApi SQL Model', debug=True)
 
+origins = [
+    "https://www.stganalytics.com.br",
+    "https://stganalytics.com.br",
+    "http://stganalytics.com.br",    
+    "http://stgapi.cf",
+    "https://stgapi.cf",
+    "http://localhost",
+    "http://localhost:8000",
+    "http://localhost:8002",
+    "http://localhost:9000",
+]
 
 # Your CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
