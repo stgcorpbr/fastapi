@@ -141,6 +141,9 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
     try:
         task = ajuste_apuracao_icms_task.delay(dados)        
         ws.send(str(task.get()).replace("'",'"'))
+        return {               
+            'msg': "ok"
+        }
     except Exception as e:        
         print('erro aqui')
         x = {
