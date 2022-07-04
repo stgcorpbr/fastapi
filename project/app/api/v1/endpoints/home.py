@@ -137,15 +137,14 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     base = dados.get('base')
+    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
     try:
-        task = ajuste_apuracao_icms_task.delay(dados)
-        print(task.get(), 'em teste')
-        return FileResponse(path=task.get(), filename=task.get(), media_type='application/xlsx')    
-    except Exception as e:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        task = ajuste_apuracao_icms_task.delay(dados)        
+        ws.send(str(task.get()).replace("'",'"'))
+    except Exception as e:        
         print('erro aqui')
         x = {
-        "data": f"Ocorreu um erro: {e}",
+        "data": f"Ocorreu um erro: { e._sql_message.__self__.statement }",
         "userId": f"{dados.get('userId')}",
         "page": f"{dados.get('page')}",
         "erro" : 1

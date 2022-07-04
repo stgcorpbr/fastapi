@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     DB_BASE = 'DB_00525580'
     URL_MYSQL: str = "mysql+aiomysql://userdb:SysDb123#ee@stgbd.cf"
-
+    URL_CONNECT = "mysql+pymysql://userdb:SysDb123#ee@stgbd.cf"
     DB_URL: str = f"{URL_MYSQL}/{DB_BASE}"
     DB_URL_GERENCIAL: str = f"{URL_MYSQL}/gerencial"
     DB_URL_SISTEMAS: str = f"{URL_MYSQL}/sc_sistemas"

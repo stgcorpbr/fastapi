@@ -83,7 +83,7 @@ def send_email(email):
 @shared_task
 def ajuste_apuracao_icms_task(rs):
     # raise Exception('Erro No Sistemas')
-    
+
     ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
     dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
     value = {'sql_data': ''}
@@ -118,7 +118,7 @@ def ajuste_apuracao_icms_task(rs):
 
     data_ = 'Acima do excel'
 
-    if len(rst) < 1000000:
+    if int(rst.qtd) < 1000000:
         sql = f"""
                 SELECT
                 sped_icms_ipi_ctrl.DATA_INI,
@@ -149,10 +149,10 @@ def ajuste_apuracao_icms_task(rs):
 
         data_ = 'Perfeito para o excel'
 
-        arq_excel = f'{rs.get("page")}_{rs.get("cnpj_conta")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
+        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
 
         if len(rs.get('data_ini')) > 0:
-            arq_excel = f'{rs.get("page")}_{rs.get("cnpj_conta")}_{utils.convertNumber(rs.get("data_ini"))}_{utils.convertNumber(rs.get("data_fim"))}.xlsx'
+            arq_excel = f'{rs.get("page")}_{rs.get("base")}_{utils.convertNumber(rs.get("data_ini"))}_{utils.convertNumber(rs.get("data_fim"))}.xlsx'
 
         urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
 
@@ -166,20 +166,26 @@ def ajuste_apuracao_icms_task(rs):
         notify('Arquivo criado com Sucesso', ws, rs)
 
         rs['nome_arquivo'] = arq_excel   
+        rs['total_registros'] = rst.qtd
         notify('Retornando a MSG', ws, rs)
-        msg_ = {
-            'message': 'Hello world',
-            'id_user': rs.get('userId'),
-            'msg': f'{arq_excel}'
-        } 
+      
+        utils.ren(rs,'id_user', 'userId') 
+        utils.ren(rs,'cnpj_conta', 'base') 
+        utils.ren(rs,'cliente', 'nomeEmpresa') 
+        utils.ren(rs,'tipo_relatorio', 'page')         
+        utils.ren(rs,'user_name', 'username')       
         
-        # utils.gravabanco_ctrl_arq_excel(rs)
-        # notify('fim', ws, rs)
-        return str(urlxls)
+        rs.pop('idEmpresa')       
         
+        utils.gravabanco_ctrl_arq_excel(rs)
+                        
         msg_ = {
-        'message': 'Hello world',
-        'id_user': rs.get('userId'),
-        'msg': f'https://www.stganalytics.com.br/media/{arq_excel}'
+            "data": "Criado com Sucesso",
+            "userId" : f"{rs['id_user']}",
+            "page": f"{rs['tipo_relatorio']}",
+            "erro" : 0,
+            "msg": f"http://stgapi.cf/{arq_excel}",        
         }
+
+        return msg_
     
