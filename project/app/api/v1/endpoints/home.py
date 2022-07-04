@@ -140,12 +140,7 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
     ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
     try:
         task = ajuste_apuracao_icms_task.delay(dados)        
-        ws.send(str(task.get()).replace("'",'"'))
-        return {
-            "erro": "erro", 
-            "data": "data",
-            "rst": "2"
-        }     
+        ws.send(str(task.get()).replace("'",'"'))           
     except Exception as e:        
         print('erro aqui')
         x = {
@@ -157,6 +152,12 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
         ws.send(str(x).replace("'",'"'))
         return {
             "erro": "sim", 
+            "data": "data",
+            "rst": "2"
+        } 
+
+    return {
+            "erro": "erro", 
             "data": "data",
             "rst": "2"
         }     
