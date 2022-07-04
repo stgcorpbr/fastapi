@@ -152,7 +152,6 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
         ws.send(str(x).replace("'",'"'))
 
 
-
 # POST All Relatorios
 @router.post('/ajuste_apuracao_icms/')
 @cache(expire=60)
