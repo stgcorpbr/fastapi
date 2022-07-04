@@ -57,7 +57,7 @@ router = APIRouter()
 @router.get("/date")
 async def get_data():  
     sio.connect('http://localhost:6000')
-    sio.emit('my response', {'response': 'my response'})
+    # sio.emit('my response', {'response': 'my response'})
 
 # POST Login
 @router.post('/login')
