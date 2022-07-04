@@ -1,6 +1,7 @@
 
 from datetime import datetime
 import json
+import random
 import sqlalchemy as sa
 
 from typing import List
@@ -10,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core import deps
 from models import home_model, user_model, relatorio_model
 from core.auth import autenticar, criar_token_acesso
-from core.tasks import ajuste_apuracao_icms_task
-
+from core.celery_worker import ajuste_apuracao_icms_task
+from websocket import create_connection
 
 from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schema
 from fastapi.security import OAuth2PasswordRequestForm
@@ -136,11 +137,21 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     base = dados.get('base')
-    task = ajuste_apuracao_icms_task.delay(dados)
-    print(task.get(), 'em teste')
+    try:
+        task = ajuste_apuracao_icms_task.delay(dados)
+        print(task.get(), 'em teste')
+        return FileResponse(path=task.get(), filename=task.get(), media_type='application/xlsx')    
+    except Exception as e:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        print('erro aqui')
+        x = {
+        "data": f"Ocorreu um erro: {e}",
+        "userId": f"{dados.get('userId')}",
+        "page": f"{dados.get('page')}",
+        "erro" : 1
+        }
+        ws.send(str(x).replace("'",'"'))
 
-    return FileResponse(path=task.get(), filename=task.get(), media_type='application/xlsx')
-    return task
 
 
 # POST All Relatorios

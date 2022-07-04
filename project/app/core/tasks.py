@@ -41,7 +41,7 @@ def send_email(email):
 
 @shared_task
 def ajuste_apuracao_icms_task(rs):
-    ws = create_connection(f"ws://localhost:7000/ws/{random.randint(10000, 99999)}")
+    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
     dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
     value = {'sql_data': ''}
     base = rs.get('base')

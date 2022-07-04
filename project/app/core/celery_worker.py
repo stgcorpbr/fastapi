@@ -48,12 +48,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 def notify(msg, ws, rs):
     if msg == 'fim': ws.send(msg)
     x = {
-        'data': msg,
-        'userId': rs['userId'],
-        'page': rs['page']
+        "data": f"{msg}",
+        "userId": f"{rs['userId']}",
+        "page": f"{rs['page']}"
         }
     try: 
-        ws.send(str(x))
+        ws.send(str(x).replace("'",'"'))
     except:
         pass
 
@@ -84,7 +84,8 @@ def send_email(email):
 
 @shared_task
 def ajuste_apuracao_icms_task(rs):
-    ws = create_connection(f"ws://localhost:7000/ws/{random.randint(10000, 99999)}")
+    raise Exception('This is not handled!')
+    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
     dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
     value = {'sql_data': ''}
     base = rs.get('base')
