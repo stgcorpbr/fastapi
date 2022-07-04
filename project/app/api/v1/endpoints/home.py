@@ -155,6 +155,11 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
         "erro" : 1
         }
         ws.send(str(x).replace("'",'"'))
+        return {
+            "erro": "sim", 
+            "data": "data",
+            "rst": "2"
+        }     
 
 
 # POST All Relatorios
