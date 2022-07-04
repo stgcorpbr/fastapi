@@ -1,0 +1,10 @@
+{
+	"port": 8002, 
+	"repositories": 
+	[{
+		"url": "https://github.com/stgcorpbr/fastapi", 
+		"path": "/apps/fastapi",
+		"deploy": "echo deploying"
+	}] 
+}
+
