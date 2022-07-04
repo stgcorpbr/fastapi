@@ -60,16 +60,14 @@ def notify(msg, ws, rs):
 
 @celery_.on_after_configure.connect
 def schedule_periodic_tasks(sender, **kwargs):
+    pass
 
-    sender.add_periodic_task(10.0, test.s('hello'), name='add every 10')
+    # sender.add_periodic_task(10.0, test.s('hello'), name='add every 10')
 
-    sender.add_periodic_task(5.0, test.s('world'), expires=10)
+    # sender.add_periodic_task(5.0, test.s('world'), expires=10)
 
     # Executes every Monday morning at 7:30 am
-    sender.add_periodic_task(
-        crontab(minute='*/1'),
-        test.s('email'),
-    )
+    # sender.add_periodic_task(crontab(minute='*/1'), test.s('email') )
 
 @celery_.task
 def test(arg):
