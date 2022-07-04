@@ -155,6 +155,7 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
             "data": "data",
             "rst": "2"
         } 
+        
 
     return {
             "erro": "erro", 
