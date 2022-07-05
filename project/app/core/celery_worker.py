@@ -184,7 +184,7 @@ def ajuste_apuracao_icms_task(rs):
             "userId" : f"{rs['id_user']}",
             "page": f"{rs['tipo_relatorio']}",
             "erro" : 0,
-            "msg": f"http://stgapi.cf/{arq_excel}",        
+            "msg": f"https://stgapi.cf:9993/{arq_excel}",        
         }
 
         return msg_
