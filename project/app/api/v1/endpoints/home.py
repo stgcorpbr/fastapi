@@ -361,11 +361,11 @@ async def del_ajuste_apuracao_icms(info : Request, current_user:  usuario_schema
             ws.send(str(x).replace("'",'"'))
 
         sql = f"""
-           DELETE FROM gerencial.ctrl_arq_excel_contabil WHERE id = {id}               
+           DELETE FROM `gerencial`.`ctrl_arq_excel_contabil` WHERE `id` = {id}         
         """
 
         result = await session.execute(sa.text(sql))
-
+        teste = await session.commit()
         if result.rowcount > 0:
             erro = False
             msg_ = f'Arquivo Deletado com Sucesso: {urlxls}'
