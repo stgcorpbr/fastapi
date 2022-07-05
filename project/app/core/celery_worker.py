@@ -6,7 +6,7 @@ from datetime import datetime
 
 from celery import Celery, shared_task
 from celery.utils.log import get_task_logger
-from celery.schedules  import crontab
+# from celery.schedules  import crontab
 
 import pandas as pd
 from pyexcelerate import Workbook
@@ -17,6 +17,8 @@ from sqlalchemy import create_engine
 from core.configs import settings
 from core import utils
 from . import mail
+
+
 
 # Initialize celery
 celery_ = Celery(
@@ -84,7 +86,12 @@ def send_email(email):
 def ajuste_apuracao_icms_task(rs):
     # raise Exception('Erro No Sistemas')
 
-    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    try:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    except Exception as e:
+        raise e 
+
+    
     dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
     value = {'sql_data': ''}
     base = rs.get('base')
@@ -95,7 +102,12 @@ def ajuste_apuracao_icms_task(rs):
       """
 
     notify(f'Conectando com a Base: DB_{base}', ws, rs)
-    engine = create_engine(f"{URL_CONNECT}/DB_{base}")
+
+    try:
+        engine = create_engine(f"{URL_CONNECT}/DB_{base}")
+    except Exception as e:
+        raise e    
+
     notify('Base conectada', ws, rs)
     
     sql = f"""
@@ -113,8 +125,11 @@ def ajuste_apuracao_icms_task(rs):
             {value['sql_data']}
             """
 
-    with engine.connect() as conn:
-        rst = pd.read_sql_query(sql, conn)
+    try:
+        with engine.connect() as conn:
+            rst = pd.read_sql_query(sql, conn)
+    except Exception as e:
+        raise e
 
     data_ = 'Acima do excel'
 
@@ -139,8 +154,12 @@ def ajuste_apuracao_icms_task(rs):
                 {value['sql_data']}
         """
         notify('Ok abaixo de 1 milhão OK', ws, rs)
-        with engine.connect() as conn:
-            df1 = pd.read_sql_query(sql, conn)
+
+        try:
+            with engine.connect() as conn:
+              df1 = pd.read_sql_query(sql, conn)
+        except Exception as e:
+            raise e
         
         df1.fillna(0, inplace=True)
 
@@ -156,12 +175,15 @@ def ajuste_apuracao_icms_task(rs):
 
         urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
 
-        notify(f'Criando o arquivo: {arq_excel}', ws, rs)             
+        notify(f'Criando o arquivo: {arq_excel}', ws, rs)  
 
-        wb = Workbook()
-        values = [df1.columns] + list(df1.values)
-        wb.new_sheet('sheet name', data=values)
-        wb.save(urlxls)
+        try:
+            wb = Workbook()
+            values = [df1.columns] + list(df1.values)
+            wb.new_sheet('sheet name', data=values)
+            wb.save(urlxls)
+        except Exception as e:
+            raise e 
 
         notify('Arquivo criado com Sucesso', ws, rs)
 
@@ -175,9 +197,12 @@ def ajuste_apuracao_icms_task(rs):
         utils.ren(rs,'tipo_relatorio', 'page')         
         utils.ren(rs,'user_name', 'username')       
         
-        rs.pop('idEmpresa')       
-        
-        utils.gravabanco_ctrl_arq_excel(rs)
+        rs.pop('idEmpresa') 
+
+        try:
+            utils.gravabanco_ctrl_arq_excel(rs)
+        except Exception as e:
+            raise e 
                         
         msg_ = {
             "data": "Criado com Sucesso",

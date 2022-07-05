@@ -22,6 +22,8 @@ from fastapi import Request, APIRouter, WebSocket, status, Depends, HTTPExceptio
 from fastapi_redis_cache import cache
 from fastapi_redis_cache import cache_one_minute
 from fastapi.responses import FileResponse
+from core.send_email import return_email_async, send_email_background, send_email_async
+from fastapi import BackgroundTasks
 import requests
 
 import socketio
@@ -54,6 +56,23 @@ def convertData(data_string):
     return str(data.strftime('%Y-%m-%d'))
 
 router = APIRouter()
+
+@router.get('/send-email/asynchronous')
+async def send_email_asynchronous():
+    await send_email_async("Erro no Sistema", "fersoftware@gmail.com", {
+        "title": "Erro no SQL",
+        "name": "Linha tal"
+    })
+    return 'Success'
+
+
+@router.get('/send-email/backgroundtasks')
+def send_email_backgroundtasks(background_tasks: BackgroundTasks):
+    send_email_background(background_tasks, 'Hello World', 'someemail@gmail.com', {
+        'title': 'Hello World',
+        'name': 'John Doe'
+    })
+    return 'Success'
 
 @router.get("/date")
 async def get_data():  
@@ -133,7 +152,7 @@ async def get_DwIcmsIpiEntradas(db: AsyncSession = Depends(deps.get_session_gere
 # POST Relatorio excel_ajuste_apuracao_icms
 @router.post('/excel_ajuste_apuracao_icms/')
 # @cache(expire=60)
-async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
+async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     base = dados.get('base')
@@ -141,6 +160,17 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
     try:
         task = ajuste_apuracao_icms_task.delay(dados)        
         ws.send(str(task.get()).replace("'",'"'))
+        
+        await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
+            "title": f"O Sistema gerou um arquivo em formato Excel",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+            "arquivo" : task.get()['msg']
+        })
+
         return {
             "erro": False, 
             "page": f"{dados.get('page')}",
@@ -148,10 +178,20 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
             "userId": f"{dados.get('userId')}",
             "msg":  str(task.get())
         }     
-    except Exception as e:        
+    except Exception as e:
+        await send_email_async("Erro no Sistema", dados.get('email'), {
+            "title": f"Ocorreu um erro: { e.args[0] }",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+        })        
+
         print('erro aqui')
+
         x = {
-        "data": f"Ocorreu um erro: { e._sql_message.__self__.statement }",
+        "data": f"Ocorreu um erro: {  e.args[0] }",
         "userId": f"{dados.get('userId')}",
         "page": f"{dados.get('page')}",
         "erro" : 1
