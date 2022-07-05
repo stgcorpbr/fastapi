@@ -16,6 +16,7 @@ origins = [
     "http://stganalytics.com.br",    
     "http://stgapi.cf",
     "https://stgapi.cf",
+    "https://stgapi.cf:8000",
     "http://localhost",
     "http://localhost:8000",
     "http://localhost:8002",
