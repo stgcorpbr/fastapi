@@ -203,6 +203,50 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
             "rst": "2"
         }     
 
+# POST All Relatorios
+@router.post('/checklist_icms_ipi_faltantes/')
+@cache(expire=60)
+async def checklist_icms_ipi_faltantes(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    async with db as session:
+        dados = await info.json()
+        dados = json.loads(dados['post_data'])
+        base = dados.get('base')
+
+        value = {
+            'sql_data' : '',        
+        }
+
+        if len(dados.get('data_ini')) > 0 and len(dados.get('data_fim')) > 0:
+            value['sql_data'] = f""" 
+                AND sped_icms_ipi_ctrl.DATA_INI 
+                BETWEEN '{ convertData(dados.get('data_ini'))}' AND '{ convertData(dados.get('data_fim'))}' 
+            """
+        sql = f"""
+            SELECT
+                COUNT(*) as qtd
+            from
+                `DB_{base}`.sped_icms_ipi_ctrl                
+            WHERE 
+                sped_icms_ipi_ctrl.ENVIO = 1 AND
+                sped_icms_ipi_ctrl.CANCELADO IS NULL 
+                {value['sql_data']}                    
+        """ 
+
+        result = await session.execute(sa.text(sql))
+        qtd = result.scalar_one_or_none()
+        data_ =  'Perfeito para o excel'
+        erro = False
+
+        if int(qtd) > 1000000:
+            data_ = 'Acima do excel'
+            erro = True
+        
+        return {
+            "erro": erro, 
+            "data": data_,
+            "rst": str(qtd)
+        }     
+
 
 # POST All Relatorios
 @router.post('/ajuste_apuracao_icms/')
