@@ -15,6 +15,12 @@ def gravabanco_ctrl_arq_excel(dados):
     except Exception as e:
       raise e
 
+def dif_month(data1, data2):    
+    ano, mes, dia = data1.split('-')
+    d1 = datetime.datetime(int(ano),int(mes),int(dia))    
+    ano, mes, dia = data2.split('-')
+    d2 = datetime.datetime(int(ano),int(mes),int(dia))
+    return (d2 - d1).days // 30
 
 def ren(dict, novo, antigo):
       dict[novo] = dict.pop(antigo)
