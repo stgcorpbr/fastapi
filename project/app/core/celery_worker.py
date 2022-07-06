@@ -187,7 +187,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
         arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
 
         if len(rs.get('data_ini')) > 0:
-            arq_excel = f'{rs.get("page")}_{rs.get("base")}_{utils.convertNumber(rs.get("data_ini"))}_{utils.convertNumber(rs.get("data_fim"))}.xlsx'
+            arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{data1}_{data2}.xlsx'
 
         urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
 
