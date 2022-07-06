@@ -19,7 +19,6 @@ from core import utils
 from . import mail
 
 
-
 # Initialize celery
 celery_ = Celery(
     'tasks',
