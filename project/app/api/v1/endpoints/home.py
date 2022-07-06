@@ -292,7 +292,7 @@ async def get_empresa_dataIni(base: str, tipo: str, current_user:  usuario_schem
                     `ENVIO` = '1' 
                     AND `CANCELADO` IS NULL 
             """
-        elif tipo == 'conciliar_sped_efd':            
+        elif tipo in ('conciliar_sped_efd','checklist_icms_ipi_faltantes'):
             sql = f"""            
                 SELECT DISTINCT
                     DATE_FORMAT( DATA_INI, "%Y" ) DATA_INI 
