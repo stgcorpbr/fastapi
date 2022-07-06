@@ -152,7 +152,6 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
                             df.loc[len(df)] = [row[0], data1, data2]
         except Exception as e:
             raise e
-
         
         df_new = pd.DataFrame(columns=['FILIAL', 'DATA'])
 
