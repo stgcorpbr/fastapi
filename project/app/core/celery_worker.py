@@ -147,8 +147,8 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
                             sped_icms_ipi_ctrl.DATA_INI BETWEEN '{data1}' AND '{data2}'
                             AND sped_icms_ipi_ctrl.CNPJ = '{row[0]}'
                         """)
-                    for rs in conn.execute(qry):
-                        if utils.dif_month(data1, data2) != rs[0]:
+                    for rst_ in conn.execute(qry):
+                        if utils.dif_month(data1, data2) != rst_[0]:
                             df.loc[len(df)] = [row[0], data1, data2]
         except Exception as e:
             raise e
