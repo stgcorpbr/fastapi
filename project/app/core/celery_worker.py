@@ -159,7 +159,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
             
             sql = text(f"""
                 SELECT
-                    DATA_INI
+                    DATE_FORMAT(DATA_INI,'%d-%m-%Y') AS DATA_INI  
                 FROM
                     sped_icms_ipi_ctrl
                 WHERE
