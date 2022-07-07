@@ -1,7 +1,7 @@
 
 from datetime import datetime
 import json
-import os
+import os, re
 import random
 import sqlalchemy as sa
 
@@ -191,7 +191,7 @@ async def excel_checklist_icms_ipi_faltantes(info : Request, background_tasks: B
         print('erro aqui')
 
         x = {
-        "data": f"Ocorreu um erro: {  e.args[0] }",
+        "data": f"Ocorreu um erro: { re.escape(e.args[0]) }",
         "userId": f"{dados.get('userId')}",
         "page": f"{dados.get('page')}",
         "erro" : 1
