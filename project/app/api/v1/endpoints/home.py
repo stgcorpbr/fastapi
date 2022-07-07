@@ -455,6 +455,65 @@ async def get_filial_uf_dataIni(base: str, current_user:  usuario_schema.AuthUse
         
         return dados   
 
+# DELETE tables
+@router.delete('/del_table')
+async def del_table(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    dados = await info.json()
+    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    x = {
+        "data": f"Aguarde procurando o arquivo!",
+        "userId": f"{dados['post_data']['userId']}",
+        "page": f"{dados['post_data']['page']}",
+        "erro" : 0
+    }
+    ws.send(str(x).replace("'",'"'))
+    async with db as session:        
+        id = dados['post_data']['data'].split('|')[0]
+        
+        sql = f"""
+           SELECT nome_arquivo FROM gerencial.ctrl_arq_excel_contabil WHERE id = {id}               
+        """
+
+        result = await session.execute(sa.text(sql))
+        nome_file = result.scalar_one_or_none()
+
+        urlxls = __file__.replace('/api/v1/endpoints/home.py', '/media/')+nome_file
+
+        if os.path.exists(urlxls):
+            os.remove(urlxls)
+            x = {
+                "data": f"Arquivo encontrado e removido",
+                "userId": f"{dados['post_data']['userId']}",
+                "page": f"{dados['post_data']['page']}",
+                "erro" : 0
+            }
+            ws.send(str(x).replace("'",'"'))
+        else:
+            erro = True
+            msg_ = f'O Arquivo não existe: {urlxls}'
+            x = {
+                "data": f"Arquivo não encontrado",
+                "userId": f"{dados['post_data']['userId']}",
+                "page": f"{dados['post_data']['page']}",
+                "erro" : 1
+            }
+            ws.send(str(x).replace("'",'"'))
+
+        sql = f"""
+           DELETE FROM `gerencial`.`ctrl_arq_excel_contabil` WHERE `id` = {id}         
+        """
+
+        result = await session.execute(sa.text(sql))
+        teste = await session.commit()
+        if result.rowcount > 0:
+            erro = False
+            msg_ = f'Arquivo Deletado com Sucesso: {urlxls}'
+        else:
+            erro = True
+            msg_ = f'Erro ao limpar do banco de dados: {urlxls}'
+
+        return {"erro": erro, 'data': msg_}
+
 # DELETE table ajuste_apuracao_icms
 @router.delete('/del_table_ajuste_apuracao_icms')
 async def del_ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
@@ -513,7 +572,6 @@ async def del_ajuste_apuracao_icms(info : Request, current_user:  usuario_schema
             msg_ = f'Erro ao limpar do banco de dados: {urlxls}'
 
         return {"erro": erro, 'data': msg_}
-
 
 
 
