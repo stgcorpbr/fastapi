@@ -179,6 +179,7 @@ async def excel_checklist_icms_ipi_faltantes(info : Request, background_tasks: B
             "msg":  str(task.get())
         }     
     except Exception as e:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
         await send_email_async("Erro no Sistema", dados.get('email'), {
             "title": f"Ocorreu um erro: { e.args[0] }",
             "page": dados.get('page'),
@@ -190,8 +191,10 @@ async def excel_checklist_icms_ipi_faltantes(info : Request, background_tasks: B
 
         print('erro aqui')
 
+        t =  re.sub('\W+', '', e.args[0])
+
         x = {
-        "data": f"Ocorreu um erro: { re.escape(e.args[0]) }",
+        "data": f"Ocorreu um erro: { t }",
         "userId": f"{dados.get('userId')}",
         "page": f"{dados.get('page')}",
         "erro" : 1
@@ -234,6 +237,7 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
             "msg":  str(task.get())
         }     
     except Exception as e:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
         await send_email_async("Erro no Sistema", dados.get('email'), {
             "title": f"Ocorreu um erro: { e.args[0] }",
             "page": dados.get('page'),
@@ -245,12 +249,15 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
 
         print('erro aqui')
 
+        t =  re.sub('\W+', '', e.args[0])
+
         x = {
-        "data": f"Ocorreu um erro: {  e.args[0] }",
+        "data": f"Ocorreu um erro: { t }",
         "userId": f"{dados.get('userId')}",
         "page": f"{dados.get('page')}",
         "erro" : 1
         }
+
         ws.send(str(x).replace("'",'"'))
         return {
             "erro": "sim", 
