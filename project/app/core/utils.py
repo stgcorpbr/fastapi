@@ -15,7 +15,6 @@ def gravabanco_ctrl_arq_excel(dados):
     except Exception as e:
       raise e
 
-
 def dif_month(data1, data2):    
     ano, mes, dia = data1.split('-')
     d1 = datetime(int(ano),int(mes),int(dia))    
@@ -36,3 +35,22 @@ def converte_data(df, column_name):
 
 def convertNumber(dados):
       return int(''.join(filter(str.isdigit, dados)))
+
+
+def write_title(range_alpha,line,value,fmt,worksheet):
+    
+    x = range_alpha.split(',')
+    val = value.split(',')
+    
+    for k,v in enumerate(range_char(x[0],x[1])):        
+        worksheet.write(f'{v}{line}', val[k], fmt)
+
+
+def range_char(start, stop):
+    return (chr(n) for n in range(ord(start), ord(stop) + 1))
+
+def writeLine(letter,nro,value,worksheet):
+    worksheet.write(f'{letter}{nro}', value)
+
+def writeLineFmt(letter,nro,value,worksheet,fmt):
+    worksheet.write(f'{letter}{nro}', value, fmt)

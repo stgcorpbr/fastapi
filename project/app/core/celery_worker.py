@@ -13,7 +13,7 @@ from pyexcelerate import Workbook
 
 from websocket import create_connection
 from sqlalchemy import create_engine, text
-
+import xlsxwriter
 from core.configs import settings
 from core import utils
 from . import mail
@@ -191,15 +191,35 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
 
         urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
 
-        notify(f'Criando o arquivo: {arq_excel}', ws, rs)             
+        notify(f'Criando o arquivo: {arq_excel}', ws, rs)
 
-        try:
-            wb = Workbook()
-            values = [df_new.columns] + list(df_new.values)
-            wb.new_sheet('sheet name', data=values)
-            wb.save(urlxls)
-        except Exception as e:
-            raise e 
+        # Create a workbook and add a worksheet.
+        workbook = xlsxwriter.Workbook(urlxls)
+        worksheet = workbook.add_worksheet()
+
+        bold = workbook.add_format({'bold': True})
+
+        merge_format = workbook.add_format({
+        'bold': 1,
+        'border': 1,
+        'align': 'center',
+        'valign': 'vcenter'})
+
+        fx = df_new.reset_index()
+        fx.index += 1 
+
+        worksheet.merge_range('A1:C1', 'SPED FALTANTES', merge_format)
+        worksheet.merge_range('D1:G1', f'Período: {data1} - {data2}', merge_format)
+
+        utils.write_title("A,B",3,'FILIAL,DATA',bold,worksheet)
+
+        utils.cell_format.set_num_format('dd/mm/yy')
+
+        for index, row in fx.iterrows():
+            utils.writeLine('A',3+index,row['FILIAL'],worksheet)
+            utils.writeLineFmt('B',3+index,row['DATA'],worksheet, utils.cell_format)
+
+        workbook.close()
 
         notify('Arquivo criado com Sucesso', ws, rs)
 
