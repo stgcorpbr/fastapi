@@ -218,7 +218,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
 
         for index, row in fx.iterrows():
             utils.writeLine('A',3+index,row['FILIAL'],worksheet)
-            utils.writeLineFmt('B',3+index,row['DATA'],worksheet)
+            utils.writeLine('B',3+index,row['DATA'],worksheet)
 
         workbook.close()
 
