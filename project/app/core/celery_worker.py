@@ -215,7 +215,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
 
         cell_format = workbook.add_format()
 
-        utils.cell_format.set_num_format('dd/mm/yy')
+        cell_format.set_num_format('dd/mm/yy')
 
         for index, row in fx.iterrows():
             utils.writeLine('A',3+index,row['FILIAL'],worksheet)
