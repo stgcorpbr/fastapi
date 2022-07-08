@@ -208,7 +208,7 @@ async def excel_checklist_icms_ipi_faltantes(info : Request, background_tasks: B
 
 # POST Relatorio apuracao_cred_pis_cofins
 @router.post('/excel_apuracao_cred_pis_cofins/')
-async def apuracao_cred_pis_cofins(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
+async def excel_apuracao_cred_pis_cofins(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     base = dados.get('base')
