@@ -153,6 +153,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
                             df.loc[len(df)] = [row[0], data1, data2]
         except Exception as e:
             raise e
+
         
         # montando o primeiro sheet sem conflitar com o segundo sheet por isso o x1
         df_x1 = pd.date_range(start=data1,end=data2, freq=pd.offsets.MonthBegin(1))
@@ -173,7 +174,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
                     sped_icms_ipi_ctrl.DATA_INI BETWEEN '{row['data1']}' AND '{row['data2']}' AND
                     sped_icms_ipi_ctrl.CNPJ = '{row['cnpj']}'
                 """)
-                rst = connection.execute(sql).fetchmany()
+                rst = connection.execute(sql)
 
                 if len(list(connection.execute(sql).scalars().unique().all())) <= 0:
                     for t in x1_col:                
