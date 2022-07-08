@@ -335,6 +335,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
 # FIM DO SHEET 1 ---------------------------------------------------------------
 
         workbook.close()
+        
 
         notify('Arquivo criado com Sucesso', ws, rs)
 
