@@ -153,6 +153,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
         except Exception as e:
             raise e
         
+
         df_new = pd.DataFrame(columns=['FILIAL', 'DATA'])
 
         for _, row in df.iterrows():
@@ -180,9 +181,9 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
             for x in list(set(df3.DATA_INI) - set(df2.DATA_INI)):
                 df_new.loc[len(df_new)] = [row['cnpj'], x.date()]
 
-            df_new['DATA'] = pd.to_datetime(df_new['DATA'])
-            df_new.sort_values(by=['FILIAL','DATA'], inplace=True)
-            df_new['DATA'] = df_new['DATA'].dt.strftime('%d/%m/%Y')
+        df_new['DATA'] = pd.to_datetime(df_new['DATA'])
+        df_new.sort_values(by=['FILIAL','DATA'], inplace=True)
+        df_new['DATA'] = df_new['DATA'].dt.strftime('%d/%m/%Y')
 
         arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
 
