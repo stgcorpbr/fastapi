@@ -430,7 +430,7 @@ def apuracao_cred_pis_cofins_task(rs):
     except Exception as e:
         raise e
 
-    if int(rst.qtd) < 1000000:
+    if int(max(list(rst.qtd))) < 1000000:
         sql = f"""
                 SELECT
                 sped_pis_cofins_ctrl.DATA_INI, 
@@ -535,7 +535,7 @@ def apuracao_cred_pis_cofins_task(rs):
         notify('Arquivo criado com Sucesso', ws, rs)
 
         rs['nome_arquivo'] = arq_excel   
-        rs['total_registros'] = rst.qtd
+        rs['total_registros'] = max(list(rst.qtd))
         
         notify('Retornando a MSG', ws, rs)
       

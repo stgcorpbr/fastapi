@@ -215,6 +215,7 @@ async def excel_apuracao_cred_pis_cofins(info : Request, background_tasks: Backg
     ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
     try:
         task = apuracao_cred_pis_cofins_task.delay(dados)        
+        # task = apuracao_cred_pis_cofins_task(dados)        
         ws.send(str(task.get()).replace("'",'"'))
         
         await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
