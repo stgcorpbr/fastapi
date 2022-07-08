@@ -174,7 +174,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
                     sped_icms_ipi_ctrl.DATA_INI BETWEEN '{row['data1']}' AND '{row['data2']}' AND
                     sped_icms_ipi_ctrl.CNPJ = '{row['cnpj']}'
                 """)
-                rst = connection.execute(sql)
+                rst_ = connection.execute(sql)
 
                 if len(list(connection.execute(sql).scalars().unique().all())) <= 0:
                     for t in x1_col:                
@@ -183,7 +183,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
                     x1_df_new.loc[index] = g
                     g = []
                 else:
-                    for _,r in enumerate(rst):
+                    for _,r in enumerate(rst_):
                         for t in x1_col:
                             if str(type(r[0])) != "<class 'datetime.date'>":
                                 g.insert(0, 'N')                
