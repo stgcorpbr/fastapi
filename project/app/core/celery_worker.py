@@ -154,7 +154,40 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
         except Exception as e:
             raise e
         
+        # montando o primeiro sheet sem conflitar com o segundo sheet por isso o x1
+        df_x1 = pd.date_range(start=data1,end=data2, freq=pd.offsets.MonthBegin(1))
+        x1_list_y1= list(df_x1.strftime('%d/%m/%Y'))
+        x1_col= list(df_x1.strftime('%d/%m/%Y'))
+        x1_list_y1.insert(0,'FILIAL')
+        x1_df_new = pd.DataFrame(columns=x1_list_y1)
 
+        with engine.connect() as connection:        
+            for index, row in df.iterrows():     
+                g = []
+                sql = text(f"""
+                SELECT
+                    COUNT(*) as qtd,
+                    DATA_INI
+                FROM
+                    sped_icms_ipi_ctrl
+                WHERE
+                    sped_icms_ipi_ctrl.DATA_INI BETWEEN '{row['data1']}' AND '{row['data2']}' AND
+                    sped_icms_ipi_ctrl.CNPJ = '{row['cnpj']}'
+                """)
+                rst = connection.execute(sql).fetchmany()
+
+                for _,r in enumerate(rst):            
+                    for t in x1_col:
+                        if str(type(r[1])) != "<class 'datetime.date'>":
+                            g.insert(0, 'N')                
+                        elif str(t) == str(r[1].strftime('%d/%m/%Y')):
+                            g.insert(0, 'S')                
+                        else:
+                            g.insert(0, 'N')
+                    g.insert(0, row['cnpj'])
+                    x1_df_new.loc[index] = g
+                    g = []
+        
         df_new = pd.DataFrame(columns=['FILIAL', 'DATA'])
 
         with engine.connect() as connection:
@@ -197,30 +230,89 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
 
         # Create a workbook and add a worksheet.
         workbook = xlsxwriter.Workbook(urlxls)
-        worksheet = workbook.add_worksheet()
+        
+        worksheet1 = workbook.add_worksheet('REL.1')
+        worksheet2 = workbook.add_worksheet('REL.2')
 
         bold = workbook.add_format({'bold': True})
 
+        center_format = workbook.add_format({    
+        'align': 'center',
+        'valign': 'vcenter'})
+        bg_verde = workbook.add_format({    
+        'align': 'center',
+        'valign': 'vcenter',
+        'border': 0,
+        'pattern': 1,
+        'bottom' : 7,
+        'bold': 1,
+        'bg_color': 'green'})
+        bg_red = workbook.add_format({    
+        'align': 'center',
+        'border': 0,
+        'valign': 'vcenter',
+        'pattern': 0,
+        'bottom' : 7,
+        'font_color': 'red'})
+        bg_white = workbook.add_format({    
+        'align': 'center',
+        'border': 0,
+        'valign': 'vcenter',
+        'pattern': 0 })
+        bg_white_border = workbook.add_format({    
+        'align': 'center',
+        'border': 1,
+        'valign': 'vcenter',    
+        'bold': 0 })
         merge_format = workbook.add_format({
         'bold': 1,
         'border': 1,
         'align': 'center',
         'valign': 'vcenter'})
 
+# SHEET 1 --------------------------------------------------------
+        for z in range(0,len(x1_df_new.columns)):
+            worksheet1.write(3, z, list(x1_df_new.columns)[z],merge_format)
+
+        for index, row in x1_df_new.iterrows():    
+            for k, v in enumerate(list(row)):
+                cor = bg_white_border
+                if v == 'S':
+                    cor = bg_verde
+                elif v == 'N':
+                    cor = bg_red
+                
+                worksheet1.write(4+index, k, v, cor)
+
+        for column in x1_df_new:
+            value = x1_df_new[column].astype(str).map(len).max()    
+
+            if value > 50:   
+                column_width = len(column)
+            else:
+                column_width = max(value+5, len(column))
+                
+            col_idx = x1_df_new.columns.get_loc(column)
+            worksheet1.set_column(col_idx, col_idx, column_width)
+
+# FIM DO SHEET 1 ---------------------------------------------------------------
+
+
+#  SHEET 2 --------------------------------------------------------        
         fx = df_new.reset_index()
         fx.index += 1 
 
-        worksheet.merge_range('A1:C1', 'SPED FALTANTES', merge_format)
-        worksheet.merge_range('D1:G1', f'Período: {data1} - {data2}', merge_format)
+        worksheet2.merge_range('A1:C1', 'SPED FALTANTES', merge_format)
+        worksheet2.merge_range('D1:G1', f'Período: {data1} - {data2}', merge_format)
 
-        utils.write_title("A,B",3,'FILIAL,DATA',bold,worksheet)
+        utils.write_title("A,B",3,'FILIAL,DATA',bold,worksheet2)
 
         cell_format = workbook.add_format()
         cell_format.set_num_format('dd/mm/yy')
 
         for index, row in fx.iterrows():
-            utils.writeLine('A',3+index,row['FILIAL'],worksheet)
-            utils.writeLine('B',3+index,row['DATA'],worksheet)
+            utils.writeLine('A',3+index,row['FILIAL'],worksheet2)
+            utils.writeLine('B',3+index,row['DATA'],worksheet2)
 
         for column in df_new:
             value = df_new[column].astype(str).map(len).max()    
@@ -231,8 +323,10 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
                 column_width = max(value+5, len(column))
                 
             col_idx = df_new.columns.get_loc(column)
-            worksheet.set_column(col_idx, col_idx, column_width)
+            worksheet2.set_column(col_idx, col_idx, column_width)
         
+# FIM DO SHEET 1 ---------------------------------------------------------------
+
         workbook.close()
 
         notify('Arquivo criado com Sucesso', ws, rs)
