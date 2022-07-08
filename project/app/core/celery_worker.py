@@ -147,8 +147,9 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
                             sped_icms_ipi_ctrl.DATA_INI BETWEEN '{data1}' AND '{data2}'
                             AND sped_icms_ipi_ctrl.CNPJ = '{row[0]}'
                         """)
-                    for rst_ in conn.execute(qry):
+                    for rst_ in conn.execute(qry):                        
                         if utils.dif_month(data1, data2) != rst_[0]:
+                            print(utils.dif_month(data1, data2),rst_[0], row[0])
                             df.loc[len(df)] = [row[0], data1, data2]
         except Exception as e:
             raise e
@@ -156,30 +157,30 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
 
         df_new = pd.DataFrame(columns=['FILIAL', 'DATA'])
 
-        for _, row in df.iterrows():
-            
-            sql = text(f"""
-                SELECT
-                    DATA_INI
-                FROM
-                    sped_icms_ipi_ctrl
-                WHERE
-                    sped_icms_ipi_ctrl.DATA_INI BETWEEN '{row['data1']}' AND '{row['data2']}' AND
-                    sped_icms_ipi_ctrl.CNPJ = '{row['cnpj']}'
-            """)
+        with engine.connect() as connection:
+            for _, row in df.iterrows():
+                
+                sql = text(f"""
+                    SELECT
+                        DATA_INI
+                    FROM
+                        sped_icms_ipi_ctrl
+                    WHERE
+                        sped_icms_ipi_ctrl.DATA_INI BETWEEN '{row['data1']}' AND '{row['data2']}' AND
+                        sped_icms_ipi_ctrl.CNPJ = '{row['cnpj']}'
+                """)
 
-            try:
-                with engine.connect() as connection:
+                try:                
                     df2 = pd.read_sql(sql,connection,index_col=None)
                     df2['DATA_INI'] = pd.to_datetime(df2['DATA_INI'])
-            except Exception as e:
-                raise e 
-            
-            df3 = pd.DataFrame({'DATA_INI': pd.date_range(start=data1,end=data2, freq=pd.offsets.MonthBegin(1))})
-            df3['DATA_INI'] = pd.to_datetime(df3['DATA_INI'])
-            
-            for x in list(set(df3.DATA_INI) - set(df2.DATA_INI)):
-                df_new.loc[len(df_new)] = [row['cnpj'], x.date()]
+                except Exception as e:
+                    raise e 
+                
+                df3 = pd.DataFrame({'DATA_INI': pd.date_range(start=data1,end=data2, freq=pd.offsets.MonthBegin(1))})
+                df3['DATA_INI'] = pd.to_datetime(df3['DATA_INI'])
+                
+                for x in list(set(df3.DATA_INI) - set(df2.DATA_INI)):
+                    df_new.loc[len(df_new)] = [row['cnpj'], x.date()]
 
         df_new['DATA'] = pd.to_datetime(df_new['DATA'])
         df_new.sort_values(by=['FILIAL','DATA'], inplace=True)
