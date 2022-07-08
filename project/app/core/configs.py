@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = 'HS256'
 
     # 60 Minutos * 24 horas * 7 dias => 1 Semana
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 365 
 
     # APP_ENV = os.getenv('APP_ENV', 'development')
     # DATABASE_USERNAME = os.getenv('DATABASE_USERNAME', 'postgress')

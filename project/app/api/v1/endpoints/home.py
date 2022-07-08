@@ -368,7 +368,7 @@ async def checklist_icms_ipi_faltantes(info : Request, current_user:  usuario_sc
 
 # POST All Relatorios
 @router.post('/apuracao_cred_pis_cofins/')
-@cache(expire=60)
+# @cache(expire=60)
 async def apuracao_cred_pis_cofins(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:
         dados = await info.json()
@@ -417,7 +417,7 @@ async def apuracao_cred_pis_cofins(info : Request, current_user:  usuario_schema
         """ 
 
         result = await session.execute(sa.text(sql))
-        qtd = result.scalar_one_or_none()
+        qtd = max(result.fetchall())[0]
         data_ =  'Perfeito para o excel'
         erro = False
 
@@ -434,7 +434,7 @@ async def apuracao_cred_pis_cofins(info : Request, current_user:  usuario_schema
 
 # POST All Relatorios
 @router.post('/ajuste_apuracao_icms/')
-@cache(expire=60)
+# @cache(expire=60)
 async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:
         dados = await info.json()
