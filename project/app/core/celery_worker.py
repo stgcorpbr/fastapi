@@ -165,8 +165,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
             for index, row in df.iterrows():     
                 g = []
                 sql = text(f"""
-                SELECT
-                    COUNT(*) as qtd,
+                SELECT                    
                     DATA_INI
                 FROM
                     sped_icms_ipi_ctrl
@@ -176,18 +175,25 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
                 """)
                 rst = connection.execute(sql).fetchmany()
 
-                for _,r in enumerate(rst):            
-                    for t in x1_col:
-                        if str(type(r[1])) != "<class 'datetime.date'>":
-                            g.insert(0, 'N')                
-                        elif str(t) == str(r[1].strftime('%d/%m/%Y')):
-                            g.insert(0, 'S')                
-                        else:
-                            g.insert(0, 'N')
-                    g.insert(0, row['cnpj'])
+                if len(list(connection.execute(sql).scalars().unique().all())) <= 0:
+                    for t in x1_col:                
+                        g.insert(0, 'N')
+                    g.insert(0, row['cnpj'])                    
                     x1_df_new.loc[index] = g
                     g = []
-        
+                else:
+                    for _,r in enumerate(rst):
+                        for t in x1_col:
+                            if str(type(r[0])) != "<class 'datetime.date'>":
+                                g.insert(0, 'N')                
+                            elif str(t) == str(r[0].strftime('%d/%m/%Y')):
+                                g.insert(0, 'S')                
+                            else:
+                                g.insert(0, 'N')
+                        g.insert(0, row['cnpj'])                        
+                        x1_df_new.loc[index] = g
+                        g = []
+
         df_new = pd.DataFrame(columns=['FILIAL', 'DATA'])
 
         with engine.connect() as connection:
