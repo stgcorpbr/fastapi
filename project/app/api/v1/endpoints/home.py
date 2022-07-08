@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core import deps
 from models import home_model, user_model, relatorio_model
 from core.auth import autenticar, criar_token_acesso
-from core.celery_worker import ajuste_apuracao_icms_task, excel_checklist_icms_ipi_faltantes_task
+from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, excel_checklist_icms_ipi_faltantes_task
 from websocket import create_connection
 
 from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schema
@@ -158,7 +158,7 @@ async def excel_checklist_icms_ipi_faltantes(info : Request, background_tasks: B
     base = dados.get('base')
     ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
     try:
-        task = excel_checklist_icms_ipi_faltantes_task.delay(dados)        
+        task = excel_checklist_icms_ipi_faltantes_task.delay(dados)
         ws.send(str(task.get()).replace("'",'"'))
         
         await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
@@ -199,6 +199,63 @@ async def excel_checklist_icms_ipi_faltantes(info : Request, background_tasks: B
         "page": f"{dados.get('page')}",
         "erro" : 1
         }
+        ws.send(str(x).replace("'",'"'))
+        return {
+            "erro": "sim", 
+            "data": "data",
+            "rst": "2"
+        }     
+
+# POST Relatorio apuracao_cred_pis_cofins
+@router.post('/excel_apuracao_cred_pis_cofins/')
+async def apuracao_cred_pis_cofins(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
+    dados = await info.json()
+    dados = json.loads(dados['post_data'])
+    base = dados.get('base')
+    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    try:
+        task = apuracao_cred_pis_cofins_task.delay(dados)        
+        ws.send(str(task.get()).replace("'",'"'))
+        
+        await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
+            "title": f"O Sistema gerou um arquivo em formato Excel",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+            "arquivo" : task.get()['msg']
+        })
+
+        return {
+            "erro": False, 
+            "page": f"{dados.get('page')}",
+            "rst": "2",
+            "userId": f"{dados.get('userId')}",
+            "msg":  str(task.get())
+        }     
+    except Exception as e:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        await send_email_async("Erro no Sistema", dados.get('email'), {
+            "title": f"Ocorreu um erro: { e.args[0] }",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+        })        
+
+        print('erro aqui')
+
+        t =  re.sub('\W+', '', e.args[0])
+
+        x = {
+        "data": f"Ocorreu um erro: { t }",
+        "userId": f"{dados.get('userId')}",
+        "page": f"{dados.get('page')}",
+        "erro" : 1
+        }
+
         ws.send(str(x).replace("'",'"'))
         return {
             "erro": "sim", 
@@ -308,6 +365,71 @@ async def checklist_icms_ipi_faltantes(info : Request, current_user:  usuario_sc
             "data": data_,
             "rst": str(qtd)
         }     
+
+# POST All Relatorios
+@router.post('/apuracao_cred_pis_cofins/')
+@cache(expire=60)
+async def apuracao_cred_pis_cofins(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    async with db as session:
+        dados = await info.json()
+        dados = json.loads(dados['post_data'])
+        base = dados.get('base')
+
+        value = {
+            'sql_data' : '',        
+        }
+
+        if len(dados.get('data_ini')) > 0 and len(dados.get('data_fim')) > 0:
+            value['sql_data'] = f""" 
+                AND sped_pis_cofins_ctrl.DATA_INI 
+                BETWEEN '{ convertData(dados.get('data_ini'))}' AND '{ convertData(dados.get('data_fim'))}' 
+            """
+
+        sql = f"""
+         SELECT
+                COUNT(*) as qtd
+            FROM
+                `DB_{base}`.sped_pis_cofins_M100
+            INNER JOIN
+            `DB_{base}`.sped_pis_cofins_ctrl
+            ON
+                sped_pis_cofins_M100.ID_EFD_CTRL_REG_0000 = sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000
+            WHERE
+                sped_pis_cofins_ctrl.CANCELADO IS NULL
+                AND
+            sped_pis_cofins_ctrl.ENVIO = 1
+                
+            UNION
+
+            SELECT
+                COUNT(*) as qtd
+            FROM
+                `DB_{base}`.sped_pis_cofins_M500
+            INNER JOIN
+            `DB_{base}`.sped_pis_cofins_ctrl
+            ON
+                sped_pis_cofins_M500.ID_EFD_CTRL_REG_0000 = sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000
+            WHERE
+                sped_pis_cofins_ctrl.CANCELADO IS NULL
+                AND
+            sped_pis_cofins_ctrl.ENVIO = 1	
+                {value['sql_data']}                 
+        """ 
+
+        result = await session.execute(sa.text(sql))
+        qtd = result.scalar_one_or_none()
+        data_ =  'Perfeito para o excel'
+        erro = False
+
+        if int(qtd) > 1000000:
+            data_ = 'Acima do excel'
+            erro = True
+        
+        return {
+            "erro": erro, 
+            "data": data_,
+            "rst": str(qtd)
+        }
 
 
 # POST All Relatorios

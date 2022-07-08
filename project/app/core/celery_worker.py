@@ -15,7 +15,7 @@ from websocket import create_connection
 from sqlalchemy import create_engine, text
 import xlsxwriter
 from core.configs import settings
-from core import utils
+from core.utils import *
 from . import mail
 
 
@@ -93,8 +93,8 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
     value = {'sql_data': ''}
     base = rs.get('base')
 
-    data1 = utils.convertData(rs.get('data_ini'))
-    data2 = utils.convertData(rs.get('data_fim'))
+    data1 = convertData(rs.get('data_ini'))
+    data2 = convertData(rs.get('data_fim'))
 
     if len(rs.get('data_ini')) > 0 and len(rs.get('data_fim')) > 0:
          value['sql_data'] = f"""
@@ -148,8 +148,8 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
                             AND sped_icms_ipi_ctrl.CNPJ = '{row[0]}'
                         """)
                     for rst_ in conn.execute(qry):                        
-                        if utils.dif_month(data1, data2) != rst_[0]:
-                            print(utils.dif_month(data1, data2),rst_[0], row[0])
+                        if dif_month(data1, data2) != rst_[0]:
+                            print(dif_month(data1, data2),rst_[0], row[0])
                             df.loc[len(df)] = [row[0], data1, data2]
         except Exception as e:
             raise e
@@ -312,14 +312,14 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
         worksheet2.merge_range('A1:C1', 'SPED FALTANTES', merge_format)
         worksheet2.merge_range('D1:G1', f'Período: {data1} - {data2}', merge_format)
 
-        utils.write_title("A,B",3,'FILIAL,DATA',bold,worksheet2)
+        write_title("A,B",3,'FILIAL,DATA',bold,worksheet2)
 
         cell_format = workbook.add_format()
         cell_format.set_num_format('dd/mm/yy')
 
         for index, row in fx.iterrows():
-            utils.writeLine('A',3+index,row['FILIAL'],worksheet2)
-            utils.writeLine('B',3+index,row['DATA'],worksheet2)
+            writeLine('A',3+index,row['FILIAL'],worksheet2)
+            writeLine('B',3+index,row['DATA'],worksheet2)
 
         for column in df_new:
             value = df_new[column].astype(str).map(len).max()    
@@ -335,7 +335,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
 # FIM DO SHEET 1 ---------------------------------------------------------------
 
         workbook.close()
-        
+
 
         notify('Arquivo criado com Sucesso', ws, rs)
 
@@ -343,16 +343,16 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
         rs['total_registros'] = rst.qtd           
         notify('Retornando a MSG', ws, rs)
                 
-        utils.ren(rs,'id_user', 'userId') 
-        utils.ren(rs,'cnpj_conta', 'base') 
-        utils.ren(rs,'cliente', 'nomeEmpresa') 
-        utils.ren(rs,'tipo_relatorio', 'page')         
-        utils.ren(rs,'user_name', 'username')       
+        ren(rs,'id_user', 'userId') 
+        ren(rs,'cnpj_conta', 'base') 
+        ren(rs,'cliente', 'nomeEmpresa') 
+        ren(rs,'tipo_relatorio', 'page')         
+        ren(rs,'user_name', 'username')       
         
         rs.pop('idEmpresa') 
 
         try:
-            utils.gravabanco_ctrl_arq_excel(rs)
+            gravabanco_ctrl_arq_excel(rs)
         except Exception as e:
             raise e
         
@@ -368,14 +368,13 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
         return msg_
 
 @shared_task
-def ajuste_apuracao_icms_task(rs):
+def apuracao_cred_pis_cofins_task(rs):
     # raise Exception('Erro No Sistemas')
 
     try:
         ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
     except Exception as e:
         raise e 
-
     
     dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
     value = {'sql_data': ''}
@@ -383,7 +382,203 @@ def ajuste_apuracao_icms_task(rs):
 
     if len(rs.get('data_ini')) > 0 and len(rs.get('data_fim')) > 0:
          value['sql_data'] = f"""
-            AND sped_icms_ipi_ctrl.DATA_INI BETWEEN '{ utils.convertData(rs.get('data_ini'))}' AND '{ utils.convertData(rs.get('data_fim'))}'
+            AND sped_pis_cofins_ctrl.DATA_INI BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}'
+      """
+
+    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+
+    try:
+        engine = create_engine(f"{URL_CONNECT}/DB_{base}")
+    except Exception as e:
+        raise e    
+
+    notify('Base conectada', ws, rs)
+
+    sql = f"""
+             SELECT
+                    COUNT(*) as qtd
+                FROM
+                    sped_pis_cofins_M100
+                INNER JOIN
+                sped_pis_cofins_ctrl
+                ON
+                    sped_pis_cofins_M100.ID_EFD_CTRL_REG_0000 = sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000
+                WHERE
+                    sped_pis_cofins_ctrl.CANCELADO IS NULL
+                    AND
+                sped_pis_cofins_ctrl.ENVIO = 1
+                    
+                UNION
+                SELECT
+                    COUNT(*) as qtd
+                FROM
+                    sped_pis_cofins_M500
+                INNER JOIN
+                sped_pis_cofins_ctrl
+                ON
+                    sped_pis_cofins_M500.ID_EFD_CTRL_REG_0000 = sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000
+                WHERE
+                    sped_pis_cofins_ctrl.CANCELADO IS NULL
+                    AND
+                sped_pis_cofins_ctrl.ENVIO = 1	
+               {value['sql_data']}                    
+               """             
+
+    try:
+        with engine.connect() as conn:
+            rst = pd.read_sql_query(sql, conn)
+    except Exception as e:
+        raise e
+
+    if int(rst.qtd) < 1000000:
+        sql = f"""
+                SELECT
+                sped_pis_cofins_ctrl.DATA_INI, 
+                sped_pis_cofins_ctrl.CNPJ,	
+                'M100' AS M100_M500, 
+                sped_pis_cofins_M100.COD_CRED, 
+                (SELECT descricao FROM gerencial.tb_tipo_cred WHERE codigo = sped_pis_cofins_M100.COD_CRED) AS DESC_COD_CRED,
+                sped_pis_cofins_M100.IND_CRED_ORI, 
+                sped_pis_cofins_M100.VL_BC_CRED, 
+                sped_pis_cofins_M100.ALIQ_PIS, 
+                sped_pis_cofins_M100.QUANT_BC_PIS, 
+                sped_pis_cofins_M100.ALIQ_PIS_QUANT, 
+                sped_pis_cofins_M100.VL_CRED, 
+                sped_pis_cofins_M100.VL_AJUS_ACRES, 
+                sped_pis_cofins_M100.VL_AJUS_REDUC, 
+                sped_pis_cofins_M100.VL_CRED_DIF, 
+                sped_pis_cofins_M100.VL_CRED_DISP, 
+                sped_pis_cofins_M100.IND_DESC_CRED, 
+                sped_pis_cofins_M100.VL_CRED_DESC, 
+                sped_pis_cofins_M100.SLD_CRED 
+                
+                FROM
+                sped_pis_cofins_M100
+                INNER JOIN
+                sped_pis_cofins_ctrl
+                ON 
+                    sped_pis_cofins_M100.ID_EFD_CTRL_REG_0000 = sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000
+                WHERE
+                sped_pis_cofins_ctrl.CANCELADO IS NULL AND
+                sped_pis_cofins_ctrl.ENVIO = 1
+                {value['sql_data']}   
+                
+                UNION
+                
+                SELECT
+                sped_pis_cofins_ctrl.DATA_INI, 
+                sped_pis_cofins_ctrl.CNPJ,	
+                'M500' AS M500_M500, 
+                sped_pis_cofins_M500.COD_CRED, 
+                (SELECT descricao FROM gerencial.tb_tipo_cred WHERE codigo = sped_pis_cofins_M500.COD_CRED) AS DESC_COD_CRED,
+                sped_pis_cofins_M500.IND_CRED_ORI, 
+                sped_pis_cofins_M500.VL_BC_CRED, 
+                sped_pis_cofins_M500.ALIQ_COFINS, 
+                sped_pis_cofins_M500.QUANT_BC_COFINS, 
+                sped_pis_cofins_M500.ALIQ_COFINS_QUANT, 
+                sped_pis_cofins_M500.VL_CRED, 
+                sped_pis_cofins_M500.VL_AJUS_ACRES, 
+                sped_pis_cofins_M500.VL_AJUS_REDUC, 
+                sped_pis_cofins_M500.VL_CRED_DIF, 
+                sped_pis_cofins_M500.VL_CRED_DISP, 
+                sped_pis_cofins_M500.IND_DESC_CRED, 
+                sped_pis_cofins_M500.VL_CRED_DESC, 
+                sped_pis_cofins_M500.SLD_CRED 
+                
+                FROM
+                sped_pis_cofins_M500
+                INNER JOIN
+                sped_pis_cofins_ctrl
+                ON 
+                    sped_pis_cofins_M500.ID_EFD_CTRL_REG_0000 = sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000
+                WHERE
+                sped_pis_cofins_ctrl.CANCELADO IS NULL AND
+                sped_pis_cofins_ctrl.ENVIO = 1	
+                {value['sql_data']}                    
+               """        
+
+        notify('Ok abaixo de 1 milhão OK', ws, rs)
+
+        try:
+            with engine.connect() as conn:
+              df1 = pd.read_sql_query(sql, conn)
+        except Exception as e:
+            raise e
+        
+        df1.fillna(0, inplace=True)
+        df1['DATA_INI'] = converte_data(df1,'DATA_INI').dt.strftime('%d/%m/%Y')
+        df1['VL_BC_CRED'] = df1['VL_BC_CRED'].str.replace(',','.').astype("float64")
+        df1['VL_CRED'] = df1['VL_CRED'].str.replace(',','.').astype("float64")
+        df1['VL_AJUS_ACRES'] = df1['VL_AJUS_ACRES'].str.replace(',','.').astype("float64")
+        df1['VL_AJUS_REDUC'] = df1['VL_AJUS_REDUC'].str.replace(',','.').astype("float64")
+        df1['VL_CRED_DIF'] = df1['VL_CRED_DIF'].str.replace(',','.').astype("float64")
+        df1['VL_CRED_DISP'] = df1['VL_CRED_DISP'].str.replace(',','.').astype("float64")
+        df1['VL_CRED_DESC'] = df1['VL_CRED_DESC'].str.replace(',','.').astype("float64")
+        df1['SLD_CRED'] = df1['SLD_CRED'].str.replace(',','.').astype("float64")
+
+        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
+
+        if len(rs.get('data_ini')) > 0:
+            arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.xlsx'
+        
+        urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
+        notify(f'Criando o arquivo: {arq_excel}', ws, rs) 
+
+        try:
+            wb = Workbook()
+            values = [df1.columns] + list(df1.values)
+            wb.new_sheet('sheet name', data=values)
+            wb.save(urlxls)
+        except Exception as e:
+            raise e 
+
+        notify('Arquivo criado com Sucesso', ws, rs)
+
+        rs['nome_arquivo'] = arq_excel   
+        rs['total_registros'] = rst.qtd
+        
+        notify('Retornando a MSG', ws, rs)
+      
+        ren(rs,'id_user', 'userId') 
+        ren(rs,'cnpj_conta', 'base') 
+        ren(rs,'cliente', 'nomeEmpresa') 
+        ren(rs,'tipo_relatorio', 'page')         
+        ren(rs,'user_name', 'username')       
+        
+        rs.pop('idEmpresa') 
+
+        try:
+            gravabanco_ctrl_arq_excel(rs)
+        except Exception as e:
+            raise e 
+                        
+        msg_ = {
+            "data": "Criado com Sucesso",
+            "userId" : f"{rs['id_user']}",
+            "page": f"{rs['tipo_relatorio']}",
+            "erro" : 0,
+            "link" : 1,
+            "msg": f"https://stgapi.cf:9993/{arq_excel}",        
+        }
+
+        return msg_ 
+
+@shared_task
+def ajuste_apuracao_icms_task(rs):
+    # raise Exception('Erro No Sistemas')
+
+    try:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    except Exception as e:
+        raise e 
+    
+    dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
+    value = {'sql_data': ''}
+    base = rs.get('base')
+
+    if len(rs.get('data_ini')) > 0 and len(rs.get('data_fim')) > 0:
+         value['sql_data'] = f"""
+            AND sped_icms_ipi_ctrl.DATA_INI BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}'
       """
 
     notify(f'Conectando com a Base: DB_{base}', ws, rs)
@@ -448,7 +643,7 @@ def ajuste_apuracao_icms_task(rs):
         
         df1.fillna(0, inplace=True)
 
-        df1['DATA_INI'] = utils.converte_data(df1, 'DATA_INI').dt.strftime('%d/%m/%Y')
+        df1['DATA_INI'] = converte_data(df1, 'DATA_INI').dt.strftime('%d/%m/%Y')
         df1['VL_AJ_APUR'] = df1['VL_AJ_APUR'].str.replace(',', '.').astype("float64")
 
         data_ = 'Perfeito para o excel'
@@ -456,7 +651,7 @@ def ajuste_apuracao_icms_task(rs):
         arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
 
         if len(rs.get('data_ini')) > 0:
-            arq_excel = f'{rs.get("page")}_{rs.get("base")}_{utils.convertNumber(rs.get("data_ini"))}_{utils.convertNumber(rs.get("data_fim"))}_{dataagora}.xlsx'
+            arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.xlsx'
 
         urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
 
@@ -476,16 +671,16 @@ def ajuste_apuracao_icms_task(rs):
         rs['total_registros'] = rst.qtd
         notify('Retornando a MSG', ws, rs)
       
-        utils.ren(rs,'id_user', 'userId') 
-        utils.ren(rs,'cnpj_conta', 'base') 
-        utils.ren(rs,'cliente', 'nomeEmpresa') 
-        utils.ren(rs,'tipo_relatorio', 'page')         
-        utils.ren(rs,'user_name', 'username')       
+        ren(rs,'id_user', 'userId') 
+        ren(rs,'cnpj_conta', 'base') 
+        ren(rs,'cliente', 'nomeEmpresa') 
+        ren(rs,'tipo_relatorio', 'page')         
+        ren(rs,'user_name', 'username')       
         
         rs.pop('idEmpresa') 
 
         try:
-            utils.gravabanco_ctrl_arq_excel(rs)
+            gravabanco_ctrl_arq_excel(rs)
         except Exception as e:
             raise e 
                         
