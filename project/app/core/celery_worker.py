@@ -221,6 +221,17 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
             utils.writeLine('A',3+index,row['FILIAL'],worksheet)
             utils.writeLine('B',3+index,row['DATA'],worksheet)
 
+        for column in df_new:
+            value = df_new[column].astype(str).map(len).max()    
+
+            if value > 50:   
+                column_width = len(column)
+            else:
+                column_width = max(value+5, len(column))
+                
+            col_idx = df_new.columns.get_loc(column)
+            worksheet.set_column(col_idx, col_idx, column_width)
+        
         workbook.close()
 
         notify('Arquivo criado com Sucesso', ws, rs)
