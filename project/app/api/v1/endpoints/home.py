@@ -620,6 +620,8 @@ async def balancete_contabil(info : Request, current_user:  usuario_schema.AuthU
         
         value = {
             'sql_data' : '',        
+            'sql_codnatureza' : '',        
+            'sql_codcta' : '',        
         }
 
         if len(dados.get('data_ini')) > 0 and len(dados.get('data_fim')) > 0:
@@ -628,17 +630,17 @@ async def balancete_contabil(info : Request, current_user:  usuario_schema.AuthU
                 BETWEEN '{ convertData(dados.get('data_ini'))}' AND '{ convertData(dados.get('data_fim'))}' 
             """
         
-        if len(dados.get('cod_natureza')) > 0:
-            value['sql_codnatureza'] = f" AND `COD_NAT` = '{str(dados.get('cod_natureza'))}' "
+        if len(dados.get('codNatureza')) > 0:
+            value['sql_codnatureza'] = f" AND `COD_NAT` = '{str(dados.get('codNatureza'))}' "
 
         
-        if len(dados.get('cod_conta')) > 0:
-            quebra_contas = dados.get('cod_conta').split(',')
+        if len(dados.get('codConta')) > 0:
+            quebra_contas = dados.get('codConta').split(',')
 
             if len(quebra_contas) > 1:
                 value['sql_codcta'] = f" AND `COD_CTA` IN {str(tuple([ str(x).strip() for x in quebra_contas]))}"
             else:
-                value['sql_codcta'] = f" AND `COD_CTA` = '{str(dados.get('cod_conta'))}'"
+                value['sql_codcta'] = f" AND `COD_CTA` = '{str(dados.get('codConta'))}'"
 
                    
         sql = f"""
