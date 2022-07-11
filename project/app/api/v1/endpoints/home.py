@@ -368,6 +368,55 @@ async def checklist_icms_ipi_faltantes(info : Request, current_user:  usuario_sc
         }     
 
 # POST All Relatorios
+@router.post('/apuracao_icms_ipi/')
+# @cache(expire=60)
+async def apuracao_icms_ipi(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    async with db as session:
+        dados = await info.json()
+        dados = json.loads(dados['post_data'])
+        base = dados.get('base')
+
+        value = {
+            'sql_data' : '',        
+        }
+
+        if len(dados.get('data_ini')) > 0 and len(dados.get('data_fim')) > 0:
+            value['sql_data'] = f""" 
+                AND sped_icms_ipi_ctrl.DATA_INI 
+                BETWEEN '{ convertData(dados.get('data_ini'))}' AND '{ convertData(dados.get('data_fim'))}' 
+            """
+
+        sql = f"""
+            SELECT
+                    COUNT(*) as qtd
+                from
+                    `DB_{base}`.sped_icms_ipi_E110
+                INNER JOIN 
+                    `DB_{base}`.sped_icms_ipi_ctrl ON
+                    sped_icms_ipi_E110.ID_SPEDFIS_CTRL_REG_0000 = sped_icms_ipi_ctrl.ID_SPEDFIS_CTRL_REG_0000
+                WHERE 
+                    sped_icms_ipi_ctrl.ENVIO = 1 AND
+	                sped_icms_ipi_ctrl.CANCELADO IS NULL 
+                    {value['sql_data']}                     
+        """ 
+
+        result = await session.execute(sa.text(sql))
+        qtd = max(result.fetchall())[0]
+        data_ =  'Perfeito para o excel'
+        erro = False
+
+        if int(qtd) > 1000000:
+            data_ = 'Acima do excel'
+            erro = True
+        
+        return {
+            "erro": erro, 
+            "data": data_,
+            "rst": str(qtd)
+        }
+
+
+# POST All Relatorios
 @router.post('/apuracao_cred_pis_cofins/')
 # @cache(expire=60)
 async def apuracao_cred_pis_cofins(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
@@ -415,6 +464,72 @@ async def apuracao_cred_pis_cofins(info : Request, current_user:  usuario_schema
                 AND
             sped_pis_cofins_ctrl.ENVIO = 1	
                 {value['sql_data']}                 
+        """ 
+
+        result = await session.execute(sa.text(sql))
+        qtd = max(result.fetchall())[0]
+        data_ =  'Perfeito para o excel'
+        erro = False
+
+        if int(qtd) > 1000000:
+            data_ = 'Acima do excel'
+            erro = True
+        
+        return {
+            "erro": erro, 
+            "data": data_,
+            "rst": str(qtd)
+        }
+
+# POST All Relatorios
+@router.post('/apuracao_deb_pis_cofins/')
+# @cache(expire=60)
+async def apuracao_deb_pis_cofins(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    async with db as session:
+        dados = await info.json()
+        dados = json.loads(dados['post_data'])
+        base = dados.get('base')
+
+        value = {
+            'sql_data' : '',        
+        }
+
+        if len(dados.get('data_ini')) > 0 and len(dados.get('data_fim')) > 0:
+            value['sql_data'] = f""" 
+                AND sped_pis_cofins_ctrl.DATA_INI 
+                BETWEEN '{ convertData(dados.get('data_ini'))}' AND '{ convertData(dados.get('data_fim'))}' 
+            """
+
+        sql = f"""
+            SELECT
+                    COUNT(*) as qtd
+                FROM
+                    `DB_{base}`.sped_pis_cofins_ctrl
+                INNER JOIN
+                    `DB_{base}`.sped_pis_cofins_M200
+                ON
+                    sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000 = sped_pis_cofins_M200.ID_EFD_CTRL_REG_0000
+                WHERE
+                    sped_pis_cofins_ctrl.CANCELADO IS NULL
+                    AND
+                    sped_pis_cofins_ctrl.ENVIO = 1
+                    {value['sql_data']}
+
+                UNION
+
+                SELECT
+                    COUNT(*) as qtd
+                FROM
+                    `DB_{base}`.sped_pis_cofins_ctrl
+                INNER JOIN
+                    `DB_{base}`.sped_pis_cofins_M600
+                ON
+                    sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000 = sped_pis_cofins_M600.ID_EFD_CTRL_REG_0000
+                WHERE
+                    sped_pis_cofins_ctrl.CANCELADO IS NULL
+                    AND
+                    sped_pis_cofins_ctrl.ENVIO = 1                    
+                    {value['sql_data']}
         """ 
 
         result = await session.execute(sa.text(sql))
