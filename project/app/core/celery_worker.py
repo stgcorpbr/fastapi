@@ -1114,8 +1114,7 @@ def apuracao_icms_ipi_task(rs):
 @shared_task
 def balancete_contabil_task(rs):
     # raise Exception('Erro No Sistemas')
-    filtro = rs.get('tipoFiltro')
-
+    
     try:
         ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
     except Exception as e:
