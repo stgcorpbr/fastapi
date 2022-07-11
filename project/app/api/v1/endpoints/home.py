@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core import deps
 from models import home_model, user_model, relatorio_model
 from core.auth import autenticar, criar_token_acesso
-from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, apuracao_icms_ipi_task, excel_checklist_icms_ipi_faltantes_task
+from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, apuracao_icms_ipi_task, balancete_contabil_task, excel_checklist_icms_ipi_faltantes_task
 from websocket import create_connection
 
 from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schema
