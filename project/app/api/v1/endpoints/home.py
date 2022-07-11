@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core import deps
 from models import home_model, user_model, relatorio_model
 from core.auth import autenticar, criar_token_acesso
-from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, excel_checklist_icms_ipi_faltantes_task
+from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, excel_checklist_icms_ipi_faltantes_task
 from websocket import create_connection
 
 from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schema
@@ -199,6 +199,64 @@ async def excel_checklist_icms_ipi_faltantes(info : Request, background_tasks: B
         "page": f"{dados.get('page')}",
         "erro" : 1
         }
+        ws.send(str(x).replace("'",'"'))
+        return {
+            "erro": "sim", 
+            "data": "data",
+            "rst": "2"
+        }     
+
+# POST Relatorio apuracao_deb_pis_cofins
+@router.post('/excel_apuracao_deb_pis_cofins/')
+async def excel_apuracao_deb_pis_cofins(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
+    dados = await info.json()
+    dados = json.loads(dados['post_data'])
+    base = dados.get('base')
+    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    try:
+        task = apuracao_deb_pis_cofins_task.delay(dados)        
+        # task = apuracao_deb_pis_cofins_task(dados)        
+        ws.send(str(task.get()).replace("'",'"'))
+        
+        await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
+            "title": f"O Sistema gerou um arquivo em formato Excel",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+            "arquivo" : task.get()['msg']
+        })
+
+        return {
+            "erro": False, 
+            "page": f"{dados.get('page')}",
+            "rst": "2",
+            "userId": f"{dados.get('userId')}",
+            "msg":  str(task.get())
+        }     
+    except Exception as e:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        await send_email_async("Erro no Sistema", dados.get('email'), {
+            "title": f"Ocorreu um erro: { e.args[0] }",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+        })        
+
+        print('erro aqui')
+
+        t =  re.sub('\W+', '', e.args[0])
+
+        x = {
+        "data": f"Ocorreu um erro: { t }",
+        "userId": f"{dados.get('userId')}",
+        "page": f"{dados.get('page')}",
+        "erro" : 1
+        }
+
         ws.send(str(x).replace("'",'"'))
         return {
             "erro": "sim", 

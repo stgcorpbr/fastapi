@@ -564,6 +564,214 @@ def apuracao_cred_pis_cofins_task(rs):
         return msg_ 
 
 @shared_task
+def apuracao_deb_pis_cofins_task(rs):
+    # raise Exception('Erro No Sistemas')
+
+    try:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    except Exception as e:
+        raise e 
+    
+    dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
+    value = {'sql_data': ''}
+    base = rs.get('base')
+
+    if len(rs.get('data_ini')) > 0 and len(rs.get('data_fim')) > 0:
+         value['sql_data'] = f"""
+            AND sped_pis_cofins_ctrl.DATA_INI BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}'
+      """
+
+    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+
+    try:
+        engine = create_engine(f"{URL_CONNECT}/DB_{base}")
+    except Exception as e:
+        raise e    
+
+    notify('Base conectada', ws, rs)
+
+    sql = f"""
+             SELECT
+                    COUNT(*) as qtd
+                FROM
+                    sped_pis_cofins_M100
+                INNER JOIN
+                sped_pis_cofins_ctrl
+                ON
+                    sped_pis_cofins_M100.ID_EFD_CTRL_REG_0000 = sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000
+                WHERE
+                    sped_pis_cofins_ctrl.CANCELADO IS NULL
+                    AND
+                sped_pis_cofins_ctrl.ENVIO = 1
+                    
+                UNION
+                SELECT
+                    COUNT(*) as qtd
+                FROM
+                    sped_pis_cofins_M500
+                INNER JOIN
+                sped_pis_cofins_ctrl
+                ON
+                    sped_pis_cofins_M500.ID_EFD_CTRL_REG_0000 = sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000
+                WHERE
+                    sped_pis_cofins_ctrl.CANCELADO IS NULL
+                    AND
+                sped_pis_cofins_ctrl.ENVIO = 1	
+               {value['sql_data']}                    
+               """             
+
+    try:
+        with engine.connect() as conn:
+            rst = pd.read_sql_query(sql, conn)
+    except Exception as e:
+        raise e
+
+    if int(max(list(rst.qtd))) < 1000000:
+        sql = f"""
+                SELECT
+                        sped_pis_cofins_ctrl.CNPJ, 
+                        sped_pis_cofins_ctrl.DATA_INI, 	
+                        'M200' AS M200_M600,
+                        sped_pis_cofins_M200.VL_TOT_CONT_NC_PER, 
+                        (SELECT
+                              SUM(IF(M200.IND_AJ = 1, (REPLACE(M200.VL_AJ,",",".")*-1),REPLACE(M200.VL_AJ,",","."))) AS TOTAL
+                           FROM
+                              sped_pis_cofins_M220 AS M200
+                           WHERE
+                              M200.ID_EFD_CTRL_REG_0000 = sped_pis_cofins_M200.ID_EFD_CTRL_REG_0000) AS TOTAL_AJUSTE_M200_M600,
+                        sped_pis_cofins_M200.VL_TOT_CRED_DESC, 
+                        sped_pis_cofins_M200.VL_TOT_CRED_DESC_ANT, 
+                        sped_pis_cofins_M200.VL_TOT_CONT_NC_DEV, 
+                        sped_pis_cofins_M200.VL_RET_NC, 
+                        sped_pis_cofins_M200.VL_OUT_DED_NC, 
+                        sped_pis_cofins_M200.VL_CONT_NC_REC, 
+                        sped_pis_cofins_M200.VL_TOT_CONT_CUM_PER, 
+                        sped_pis_cofins_M200.VL_RET_CUM, 
+                        sped_pis_cofins_M200.VL_OUT_DED_CUM, 
+                        sped_pis_cofins_M200.VL_CONT_CUM_REC, 
+                        sped_pis_cofins_M200.VL_TOT_CONT_REC
+                     FROM
+                        sped_pis_cofins_ctrl
+                        INNER JOIN
+                        sped_pis_cofins_M200
+                        ON 
+                           sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000 = sped_pis_cofins_M200.ID_EFD_CTRL_REG_0000
+                        
+                     WHERE
+                        sped_pis_cofins_ctrl.CANCELADO IS NULL AND
+                        sped_pis_cofins_ctrl.ENVIO = 1
+                        {value['sql_data']}
+                        
+                        UNION
+                        
+                        SELECT
+                        sped_pis_cofins_ctrl.CNPJ, 
+                        sped_pis_cofins_ctrl.DATA_INI, 
+                        'M600' AS M200_M600,
+                        sped_pis_cofins_M600.VL_TOT_CONT_NC_PER,
+                        (SELECT
+                              SUM(IF(M600.IND_AJ = 1, (REPLACE(M600.VL_AJ,",",".")*-1),REPLACE(M600.VL_AJ,",","."))) AS TOTAL
+                           FROM
+                              sped_pis_cofins_M620 AS M600
+                           WHERE
+                              M600.ID_EFD_CTRL_REG_0000 = sped_pis_cofins_M600.ID_EFD_CTRL_REG_0000) AS TOTAL_AJUSTE_M200_M600, 
+                        sped_pis_cofins_M600.VL_TOT_CRED_DESC, 
+                        sped_pis_cofins_M600.VL_TOT_CRED_DESC_ANT, 
+                        sped_pis_cofins_M600.VL_TOT_CONT_NC_DEV, 
+                        sped_pis_cofins_M600.VL_RET_NC, 
+                        sped_pis_cofins_M600.VL_OUT_DED_NC, 
+                        sped_pis_cofins_M600.VL_CONT_NC_REC, 
+                        sped_pis_cofins_M600.VL_TOT_CONT_CUM_PER, 
+                        sped_pis_cofins_M600.VL_RET_CUM, 
+                        sped_pis_cofins_M600.VL_OUT_DED_CUM, 
+                        sped_pis_cofins_M600.VL_CONT_CUM_REC, 
+                        sped_pis_cofins_M600.VL_TOT_CONT_REC
+                     FROM
+                        sped_pis_cofins_ctrl
+                        INNER JOIN
+                        sped_pis_cofins_M600
+                        ON 
+                           sped_pis_cofins_ctrl.ID_SPEDFIS_CTRL_REG_0000 = sped_pis_cofins_M600.ID_EFD_CTRL_REG_0000
+                     WHERE
+                        sped_pis_cofins_ctrl.CANCELADO IS NULL AND
+                        sped_pis_cofins_ctrl.ENVIO = 1 
+                        {value['sql_data']}
+                     ORDER BY
+                        M200_M600, DATA_INI ASC
+               """        
+
+        notify('Ok abaixo de 1 milhão OK', ws, rs)
+
+        try:
+            with engine.connect() as conn:
+              df1 = pd.read_sql_query(sql, conn)
+        except Exception as e:
+            raise e
+        
+        df1.fillna(0, inplace=True)
+        df1['DATA_INI'] = converte_data(df1,'DATA_INI').dt.strftime('%d/%m/%Y')
+        df1['VL_TOT_CONT_NC_PER'] = df1['VL_TOT_CONT_NC_PER'].str.replace(',','.').astype("float64")
+        df1['VL_TOT_CRED_DESC'] = df1['VL_TOT_CRED_DESC'].str.replace(',','.').astype("float64")
+        df1['VL_TOT_CRED_DESC_ANT'] = df1['VL_TOT_CRED_DESC_ANT'].str.replace(',','.').astype("float64")
+        df1['VL_TOT_CONT_NC_DEV'] = df1['VL_TOT_CONT_NC_DEV'].str.replace(',','.').astype("float64")
+        df1['VL_RET_NC'] = df1['VL_RET_NC'].str.replace(',','.').astype("float64")
+        df1['VL_OUT_DED_NC'] = df1['VL_OUT_DED_NC'].str.replace(',','.').astype("float64")
+        df1['VL_CONT_NC_REC'] = df1['VL_CONT_NC_REC'].str.replace(',','.').astype("float64")
+        df1['VL_TOT_CONT_CUM_PER'] = df1['VL_TOT_CONT_CUM_PER'].str.replace(',','.').astype("float64")
+        df1['VL_RET_CUM'] = df1['VL_RET_CUM'].str.replace(',','.').astype("float64")
+        df1['VL_OUT_DED_CUM'] = df1['VL_OUT_DED_CUM'].str.replace(',','.').astype("float64")
+        df1['VL_CONT_CUM_REC'] = df1['VL_CONT_CUM_REC'].str.replace(',','.').astype("float64")
+        df1['VL_TOT_CONT_REC'] = df1['VL_TOT_CONT_REC'].str.replace(',','.').astype("float64")
+
+        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
+
+        if len(rs.get('data_ini')) > 0:
+            arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.xlsx'
+        
+        urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
+        notify(f'Criando o arquivo: {arq_excel}', ws, rs) 
+
+        try:
+            wb = Workbook()
+            values = [df1.columns] + list(df1.values)
+            wb.new_sheet('sheet name', data=values)
+            wb.save(urlxls)
+        except Exception as e:
+            raise e 
+
+        notify('Arquivo criado com Sucesso', ws, rs)
+
+        rs['nome_arquivo'] = arq_excel   
+        rs['total_registros'] = max(list(rst.qtd))
+        
+        notify('Retornando a MSG', ws, rs)
+      
+        ren(rs,'id_user', 'userId') 
+        ren(rs,'cnpj_conta', 'base') 
+        ren(rs,'cliente', 'nomeEmpresa') 
+        ren(rs,'tipo_relatorio', 'page')         
+        ren(rs,'user_name', 'username')       
+        
+        rs.pop('idEmpresa') 
+
+        try:
+            gravabanco_ctrl_arq_excel(rs)
+        except Exception as e:
+            raise e 
+                        
+        msg_ = {
+            "data": "Criado com Sucesso",
+            "userId" : f"{rs['id_user']}",
+            "page": f"{rs['tipo_relatorio']}",
+            "erro" : 0,
+            "link" : 1,
+            "msg": f"https://stgapi.cf:9993/{arq_excel}",        
+        }
+
+        return msg_ 
+
+
+@shared_task
 def ajuste_apuracao_icms_task(rs):
     # raise Exception('Erro No Sistemas')
 
