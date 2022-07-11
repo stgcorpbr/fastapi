@@ -1110,6 +1110,7 @@ def apuracao_icms_ipi_task(rs):
 
         return msg_
 
+
 @shared_task
 def balancete_contabil_task(rs):
     # raise Exception('Erro No Sistemas')
