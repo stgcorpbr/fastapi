@@ -1236,8 +1236,7 @@ def balancete_contabil_task(rs):
         ren(rs,'cnpj_conta', 'base') 
         ren(rs,'cliente', 'nomeEmpresa') 
         ren(rs,'tipo_relatorio', 'page')         
-        ren(rs,'user_name', 'username')        
-        ren(rs,'filtro', 'tipoFiltro')       
+        ren(rs,'user_name', 'username')
         ren(rs,'cod_natureza', 'codNatureza')       
         ren(rs,'cod_conta', 'codConta')       
         
