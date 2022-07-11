@@ -903,3 +903,208 @@ def ajuste_apuracao_icms_task(rs):
 
         return msg_
     
+@shared_task
+def apuracao_icms_ipi_task(rs):
+    # raise Exception('Erro No Sistemas')
+    filtro = rs.get('tipoFiltro')
+
+    try:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    except Exception as e:
+        raise e 
+    
+    dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
+    value = {'sql_data': ''}
+    base = rs.get('base')
+
+    if len(rs.get('data_ini')) > 0 and len(rs.get('data_fim')) > 0:
+         value['sql_data'] = f"""
+            AND sped_icms_ipi_ctrl.DATA_INI BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}'
+      """
+
+    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+
+    try:
+        engine = create_engine(f"{URL_CONNECT}/DB_{base}")
+    except Exception as e:
+        raise e    
+
+    notify('Base conectada', ws, rs)
+    
+    sql = f"""
+        SELECT
+                COUNT(*) as qtd
+            from
+                sped_icms_ipi_ctrl
+                INNER JOIN
+                sped_icms_ipi_E111
+                ON
+                    sped_icms_ipi_ctrl.ID_SPEDFIS_CTRL_REG_0000 = sped_icms_ipi_E111.ID_SPEDFIS_CTRL_REG_0000
+            WHERE
+                sped_icms_ipi_ctrl.ENVIO = 1 AND
+                sped_icms_ipi_ctrl.CANCELADO IS NULL
+            {value['sql_data']}
+            """
+    if filtro == 'ipi':
+        sql = f"""
+            SELECT
+                COUNT(*) as qtd
+            from
+                sped_icms_ipi_ctrl
+                INNER JOIN
+                sped_icms_ipi_E520
+                ON 
+                    sped_icms_ipi_ctrl.ID_SPEDFIS_CTRL_REG_0000 = sped_icms_ipi_E520.ID_SPEDFIS_CTRL_REG_0000
+            WHERE 
+                sped_icms_ipi_ctrl.ENVIO = 1 AND
+                sped_icms_ipi_ctrl.CANCELADO IS NULL
+                {value['sql_data']}                    
+        """
+
+    try:
+        with engine.connect() as conn:
+            rst = pd.read_sql_query(sql, conn)
+    except Exception as e:
+        raise e
+
+    data_ = 'Acima do excel'
+
+    if int(rst.qtd) < 1000000:
+        sql = f"""
+            SELECT
+                    sped_icms_ipi_ctrl.DATA_INI, 
+                    sped_icms_ipi_ctrl.CNPJ, 	
+                    sped_icms_ipi_E110.REG, 
+                    REPLACE ( sped_icms_ipi_E110.VL_TOT_DEBITOS, ',', '.' ) AS VL_TOT_DEBITOS,
+                    sped_icms_ipi_E110.VL_AJ_DEBITOS, 
+                    sped_icms_ipi_E110.VL_TOT_AJ_DEBITOS, 
+                    sped_icms_ipi_E110.VL_ESTORNOS_CRED, 
+                    sped_icms_ipi_E110.VL_TOT_CREDITOS, 
+                    sped_icms_ipi_E110.VL_AJ_CREDITOS, 
+                    sped_icms_ipi_E110.VL_TOT_AJ_CREDITOS, 
+                    sped_icms_ipi_E110.VL_ESTORNOS_DEB, 
+                    sped_icms_ipi_E110.VL_SLD_CREDOR_ANT, 
+                    sped_icms_ipi_E110.VL_SLD_APURADO, 
+                    sped_icms_ipi_E110.VL_TOT_DED, 
+                    sped_icms_ipi_E110.VL_ICMS_RECOLHER, 
+                    sped_icms_ipi_E110.VL_SLD_CREDOR_TRANSPORTAR, 
+                    sped_icms_ipi_E110.DEB_ESP, 
+                    sped_icms_ipi_E110.ID_SPEDFIS_CTRL_REG_0000
+                FROM
+                    sped_icms_ipi_E110
+                    INNER JOIN
+                    sped_icms_ipi_ctrl
+                    ON 
+                    sped_icms_ipi_E110.ID_SPEDFIS_CTRL_REG_0000 = sped_icms_ipi_ctrl.ID_SPEDFIS_CTRL_REG_0000
+                WHERE
+                    sped_icms_ipi_ctrl.ENVIO = 1 AND
+                    sped_icms_ipi_ctrl.CANCELADO IS NULL 
+                    {value['sql_data']}
+                ORDER BY
+                        sped_icms_ipi_ctrl.DATA_INI ASC  
+        """
+
+        if filtro == 'ipi':
+
+            sql = f"""
+               SELECT
+                  sped_icms_ipi_ctrl.DATA_INI, 
+                  sped_icms_ipi_ctrl.CNPJ, 	
+                  sped_icms_ipi_E520.VL_SD_ANT_IPI, 
+                  sped_icms_ipi_E520.VL_DEB_IPI, 
+                  sped_icms_ipi_E520.VL_CRED_IPI, 
+                  sped_icms_ipi_E520.VL_OD_IPI, 
+                  sped_icms_ipi_E520.VL_OC_IPI, 
+                  sped_icms_ipi_E520.VL_SC_IPI, 
+                  sped_icms_ipi_E520.VL_SD_IPI, 
+                  sped_icms_ipi_E520.ID_SPEDFIS_CTRL_REG_0000
+               FROM
+                  sped_icms_ipi_ctrl
+                  INNER JOIN
+                  sped_icms_ipi_E520
+                  ON 
+                     sped_icms_ipi_ctrl.ID_SPEDFIS_CTRL_REG_0000 = sped_icms_ipi_E520.ID_SPEDFIS_CTRL_REG_0000
+               WHERE 
+                     sped_icms_ipi_ctrl.ENVIO = 1 AND
+                  sped_icms_ipi_ctrl.CANCELADO IS NULL
+                  {value['sql_data']} 
+               ORDER BY
+	               sped_icms_ipi_ctrl.DATA_INI ASC                   
+            """
+
+        notify('Ok abaixo de 1 milhão OK', ws, rs)
+
+        try:
+            with engine.connect() as conn:
+              df1 = pd.read_sql_query(sql, conn)
+        except Exception as e:
+            raise e
+        
+        df1.fillna(0, inplace=True)
+        df1['DATA_INI'] = converte_data(df1, 'DATA_INI').dt.strftime('%d/%m/%Y')
+
+        if filtro != 'ipi': df1['VL_TOT_DEBITOS'] = df1['VL_TOT_DEBITOS'].astype("float64")
+        if filtro != 'ipi': df1['VL_AJ_DEBITOS'] = df1['VL_AJ_DEBITOS'].str.replace(',','.').astype("float64") 
+        if filtro != 'ipi': df1['VL_TOT_AJ_DEBITOS'] = df1['VL_TOT_AJ_DEBITOS'].str.replace(',','.').astype("float64")
+
+        if filtro != 'ipi': df1['VL_ESTORNOS_CRED'] = df1['VL_ESTORNOS_CRED'].str.replace(',','.').astype("float64")
+        if filtro != 'ipi': df1['VL_TOT_CREDITOS'] = df1['VL_TOT_CREDITOS'].str.replace(',','.').astype("float64")
+        if filtro != 'ipi': df1['VL_AJ_CREDITOS'] = df1['VL_AJ_CREDITOS'].str.replace(',','.').astype("float64")
+        if filtro != 'ipi': df1['VL_TOT_AJ_CREDITOS'] = df1['VL_TOT_AJ_CREDITOS'].str.replace(',','.').astype("float64")
+        if filtro != 'ipi': df1['VL_ESTORNOS_DEB'] = df1['VL_ESTORNOS_DEB'].str.replace(',','.').astype("float64")
+        if filtro != 'ipi': df1['VL_SLD_CREDOR_ANT'] = df1['VL_SLD_CREDOR_ANT'].str.replace(',','.').astype("float64")
+        if filtro != 'ipi': df1['VL_SLD_APURADO'] = df1['VL_SLD_APURADO'].str.replace(',','.').astype("float64")
+        if filtro != 'ipi': df1['VL_TOT_DED'] = df1['VL_TOT_DED'].str.replace(',','.').astype("float64")
+        if filtro != 'ipi': df1['VL_ICMS_RECOLHER'] = df1['VL_ICMS_RECOLHER'].str.replace(',','.').astype("float64")
+        if filtro != 'ipi': df1['VL_SLD_CREDOR_TRANSPORTAR'] = df1['VL_SLD_CREDOR_TRANSPORTAR'].str.replace(',','.').astype("float64")
+        if filtro != 'ipi': df1['DEB_ESP'] = df1['DEB_ESP'].str.replace(',','.').astype("float64")
+
+        data_ = 'Perfeito para o excel'
+
+        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{filtro}_{dataagora}.xlsx'
+
+        if len(rs.get('data_ini')) > 0:
+            arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{filtro}_{dataagora}.xlsx'
+
+        urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
+
+        notify(f'Criando o arquivo: {arq_excel}', ws, rs)  
+
+        try:
+            wb = Workbook()
+            values = [df1.columns] + list(df1.values)
+            wb.new_sheet('sheet name', data=values)
+            wb.save(urlxls)
+        except Exception as e:
+            raise e 
+
+        notify('Arquivo criado com Sucesso', ws, rs)
+
+        rs['nome_arquivo'] = arq_excel   
+        rs['total_registros'] = rst.qtd
+        notify('Retornando a MSG', ws, rs)
+      
+        ren(rs,'id_user', 'userId') 
+        ren(rs,'cnpj_conta', 'base') 
+        ren(rs,'cliente', 'nomeEmpresa') 
+        ren(rs,'tipo_relatorio', 'page')         
+        ren(rs,'user_name', 'username')        
+        ren(rs,'filtro', 'tipoFiltro')       
+        
+        rs.pop('idEmpresa') 
+
+        try:
+            gravabanco_ctrl_arq_excel(rs)
+        except Exception as e:
+            raise e 
+                        
+        msg_ = {
+            "data": "Criado com Sucesso",
+            "userId" : f"{rs['id_user']}",
+            "page": f"{rs['tipo_relatorio']}",
+            "erro" : 0,
+            "link" : 1,
+            "msg": f"https://stgapi.cf:9993/{arq_excel}",        
+        }
+
+        return msg_
