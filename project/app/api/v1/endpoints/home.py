@@ -265,7 +265,7 @@ async def excel_apuracao_deb_pis_cofins(info : Request, background_tasks: Backgr
         }     
 
 # POST Relatorio apuracao_icms_ipi
-@router.post('/excel_apuracao_icms_ipi/')
+@router.post('/excel_apuracao_icms_ipi')
 async def excel_apuracao_icms_ipi(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
     dados = await info.json()
     dados = json.loads(dados['post_data'])
