@@ -433,6 +433,7 @@ async def apuracao_icms_ipi(info : Request, current_user:  usuario_schema.AuthUs
         dados = await info.json()
         dados = json.loads(dados['post_data'])
         base = dados.get('base')
+        filtro = dados.get('tipoFiltro')
 
         value = {
             'sql_data' : '',        
@@ -457,6 +458,23 @@ async def apuracao_icms_ipi(info : Request, current_user:  usuario_schema.AuthUs
 	                sped_icms_ipi_ctrl.CANCELADO IS NULL 
                     {value['sql_data']}                     
         """ 
+
+        if filtro == 'ipi':
+
+            sql = f"""
+                SELECT
+                    COUNT(*) as qtd
+                from
+                    `DB_{base}`.sped_icms_ipi_ctrl
+                    INNER JOIN
+                    `DB_{base}`.sped_icms_ipi_E520
+                    ON 
+                        sped_icms_ipi_ctrl.ID_SPEDFIS_CTRL_REG_0000 = sped_icms_ipi_E520.ID_SPEDFIS_CTRL_REG_0000
+                WHERE 
+                    sped_icms_ipi_ctrl.ENVIO = 1 AND
+                    sped_icms_ipi_ctrl.CANCELADO IS NULL
+                    {value['sql_data']}                    
+            """
 
         result = await session.execute(sa.text(sql))
         qtd = max(result.fetchall())[0]
