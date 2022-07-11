@@ -1,3 +1,4 @@
+import json
 import os
 import random
 
@@ -1074,6 +1075,149 @@ def apuracao_icms_ipi_task(rs):
             wb = Workbook()
             values = [df1.columns] + list(df1.values)
             wb.new_sheet('sheet name', data=values)
+            wb.save(urlxls)
+        except Exception as e:
+            raise e 
+
+        notify('Arquivo criado com Sucesso', ws, rs)
+
+        rs['nome_arquivo'] = arq_excel   
+        rs['total_registros'] = rst.qtd
+        notify('Retornando a MSG', ws, rs)
+      
+        ren(rs,'id_user', 'userId') 
+        ren(rs,'cnpj_conta', 'base') 
+        ren(rs,'cliente', 'nomeEmpresa') 
+        ren(rs,'tipo_relatorio', 'page')         
+        ren(rs,'user_name', 'username')        
+        ren(rs,'filtro', 'tipoFiltro')       
+        
+        rs.pop('idEmpresa') 
+
+        try:
+            gravabanco_ctrl_arq_excel(rs)
+        except Exception as e:
+            raise e 
+                        
+        msg_ = {
+            "data": "Criado com Sucesso",
+            "userId" : f"{rs['id_user']}",
+            "page": f"{rs['tipo_relatorio']}",
+            "erro" : 0,
+            "link" : 1,
+            "msg": f"https://stgapi.cf:9993/{arq_excel}",        
+        }
+
+        return msg_
+
+@shared_task
+def balancete_contabil_task(rs):
+    # raise Exception('Erro No Sistemas')
+    filtro = rs.get('tipoFiltro')
+
+    try:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    except Exception as e:
+        raise e 
+    
+    dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
+    value = {'sql_data': ''}
+    base = rs.get('base')
+
+    if len(rs.get('data_ini')) > 0 and len(rs.get('data_fim')) > 0:
+        value['sql_data'] = f""" 
+            AND dw_balancete_contabil_geral.DT_FIN 
+            BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}' 
+        """
+    
+    if len(rs.get('cod_natureza')) > 0:
+        value['sql_codnatureza'] = f" AND `COD_NAT` = '{str(rs.get('cod_natureza'))}' "
+
+    
+    if len(rs.get('cod_conta')) > 0:
+        quebra_contas = rs.get('cod_conta').split(',')
+
+        if len(quebra_contas) > 1:
+            value['sql_codcta'] = f" AND `COD_CTA` IN {str(tuple([ str(x).strip() for x in quebra_contas]))}"
+        else:
+            value['sql_codcta'] = f" AND `COD_CTA` = '{str(rs.get('cod_conta'))}'"
+
+    
+    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+
+    try:
+        engine = create_engine(f"{URL_CONNECT}/DB_{base}")
+    except Exception as e:
+        raise e    
+
+    notify('Base conectada', ws, rs)
+    
+    sql = f"""
+            SELECT count(*) as qtd FROM `DB_{base}`.`dw_balancete_contabil_geral` 
+                WHERE `DT_ESCRIT` IS NOT NULL 
+                    {value['sql_data']} 
+                    {value['sql_codnatureza']} 
+                    {value['sql_codcta']}            
+        """
+
+    try:
+        with engine.connect() as conn:
+            rst = pd.read_sql_query(sql, conn)
+    except Exception as e:
+        raise e
+
+    data_ = 'Acima do excel'
+
+    if int(rst.qtd) < 1000000:
+        sql = f"""
+        SELECT * FROM `DB_{base}`.`dw_balancete_contabil_geral` 
+            WHERE `DT_ESCRIT` IS NOT NULL 
+                {value['sql_data']} 
+                {value['sql_codnatureza']} 
+                {value['sql_codcta']}     
+
+        """
+
+        notify('Ok abaixo de 1 milhão OK', ws, rs)
+
+        try:
+            with engine.connect() as conn:
+              df1 = pd.read_sql_query(sql, conn)
+        except Exception as e:
+            raise e
+        
+        data_ = 'Perfeito para o excel'
+
+        x = df1['COD_CTA'].unique()
+
+        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
+
+        if len(rs.get('data_ini')) > 0:
+            arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.xlsx'
+
+        urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
+
+        df1['DT_FIN'] = pd.to_datetime(df1['DT_FIN']).dt.strftime('%d/%m/%Y')
+        df1['DT_ESCRIT'] = pd.to_datetime(df1['DT_ESCRIT']).dt.strftime('%d/%m/%Y')
+
+        df1['VL_SLD_INI'] = df1['VL_SLD_INI'].str.replace(',','.').astype("float64").fillna(0)
+        df1['VL_DEB'] = df1['VL_DEB'].str.replace(',','.').astype("float64").fillna(0)
+        df1['VL_CRED'] = df1['VL_CRED'].str.replace(',','.').astype("float64").fillna(0)
+        df1['VL_SLD_FIN'] = df1['VL_SLD_FIN'].str.replace(',','.').astype("float64").fillna(0)
+        df1['VL_SLD_FIN_I355'] = df1['VL_SLD_FIN_I355'].str.replace(',','.').astype("float64").fillna(0)
+
+        notify(f'Criando o arquivo: {arq_excel}', ws, rs)  
+
+        try:
+            wb = Workbook()
+            if json.loads(str(rs['sheet']).lower()):           
+                for i in x:
+                    sh = df1[df1['COD_CTA'] == i]
+                    values = [sh.columns] + list(sh.values)
+                    wb.new_sheet(i, data=[sh.columns] + list(sh.values))              
+            else:     
+                values = [df1.columns] + list(df1.values)
+                wb.new_sheet('sheet name', data=values)
             wb.save(urlxls)
         except Exception as e:
             raise e 
