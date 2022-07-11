@@ -1121,7 +1121,11 @@ def balancete_contabil_task(rs):
         raise e 
     
     dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
-    value = {'sql_data': ''}
+    value = {
+            'sql_data' : '',        
+            'sql_codnatureza' : '',        
+            'sql_codcta' : '',        
+        }
     base = rs.get('base')
 
     if len(rs.get('data_ini')) > 0 and len(rs.get('data_fim')) > 0:
@@ -1130,17 +1134,17 @@ def balancete_contabil_task(rs):
             BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}' 
         """
     
-    if len(rs.get('cod_natureza')) > 0:
-        value['sql_codnatureza'] = f" AND `COD_NAT` = '{str(rs.get('cod_natureza'))}' "
+    if len(rs.get('codNatureza')) > 0:
+        value['sql_codnatureza'] = f" AND `COD_NAT` = '{str(rs.get('codNatureza'))}' "
 
-    
-    if len(rs.get('cod_conta')) > 0:
-        quebra_contas = rs.get('cod_conta').split(',')
+        
+    if len(rs.get('codConta')) > 0:
+        quebra_contas = rs.get('codConta').split(',')
 
         if len(quebra_contas) > 1:
             value['sql_codcta'] = f" AND `COD_CTA` IN {str(tuple([ str(x).strip() for x in quebra_contas]))}"
         else:
-            value['sql_codcta'] = f" AND `COD_CTA` = '{str(rs.get('cod_conta'))}'"
+            value['sql_codcta'] = f" AND `COD_CTA` = '{str(rs.get('codConta'))}'"
 
     
     notify(f'Conectando com a Base: DB_{base}', ws, rs)
@@ -1234,6 +1238,8 @@ def balancete_contabil_task(rs):
         ren(rs,'tipo_relatorio', 'page')         
         ren(rs,'user_name', 'username')        
         ren(rs,'filtro', 'tipoFiltro')       
+        ren(rs,'cod_natureza', 'codNatureza')       
+        ren(rs,'cod_conta', 'codConta')       
         
         rs.pop('idEmpresa') 
 
