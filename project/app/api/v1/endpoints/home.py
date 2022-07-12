@@ -543,6 +543,7 @@ async def checklist_icms_ipi_faltantes(info : Request, current_user:  usuario_sc
             "rst": str(qtd)
         }     
 
+
 # POST All Relatorios
 @router.post('/apuracao_icms_ipi/')
 # @cache(expire=60)
