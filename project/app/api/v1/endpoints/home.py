@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core import deps
 from models import home_model, user_model, relatorio_model
 from core.auth import autenticar, criar_token_acesso
-from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, apuracao_icms_ipi_task, b_total_icms_ipi_task, balancete_contabil_task, excel_checklist_icms_ipi_faltantes_task
+from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, apuracao_icms_ipi_task, b_total_icms_ipi_task, balancete_contabil_task, excel_checklist_icms_ipi_faltantes_task, notify
 from websocket import create_connection
 
 from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schema
@@ -28,6 +28,9 @@ from fastapi import BackgroundTasks
 import requests
 
 import socketio
+
+WS = ""
+url_ws = "wss://stgapi.cf:7000/ws/"
 
 sio = socketio.Client()
 
@@ -576,15 +579,23 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
 # POST Relatorio excel_b_total_icms_ipi
 @router.post('/excel_b_total_icms_ipi/')
 # @cache(expire=60)
-async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
+async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):
+    global url_ws, WS    
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     dados = dict(dados)
     base = dados.get('base')
-    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     try:
+        
         task = b_total_icms_ipi_task.delay(dados)        
-        ws.send(str(task.get()).replace("'",'"'))
+
+        msg = f"""{str(task.get()).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         
         await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
             "title": f"O Sistema gerou um arquivo em formato Excel",
@@ -604,7 +615,7 @@ async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTask
             "msg":  str(task.get())
         }     
     except Exception as e:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         await send_email_async("Erro no Sistema", dados.get('email'), {
             "title": f"Ocorreu um erro: { e.args[0] }",
             "page": dados.get('page'),
@@ -625,7 +636,13 @@ async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTask
         "erro" : 1
         }
 
-        ws.send(str(x).replace("'",'"'))
+        msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
+
         return {
             "erro": "sim", 
             "data": "data",
@@ -726,7 +743,7 @@ async def apuracao_icms_ipi(info : Request, current_user:  usuario_schema.AuthUs
                 WHERE 
                     sped_icms_ipi_ctrl.ENVIO = 1 AND
                     sped_icms_ipi_ctrl.CANCELADO IS NULL
-                    {value['sql_data']}                    'tamanho' : dados.rst,               
+                    {value['sql_data']}
             """
 
         result = await session.execute(sa.text(sql))
