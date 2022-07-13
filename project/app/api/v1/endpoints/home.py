@@ -26,11 +26,33 @@ from fastapi.responses import FileResponse
 from core.send_email import return_email_async, send_email_background, send_email_async
 from fastapi import BackgroundTasks
 import requests
-
+from logging import error
+from redis import Redis
 import socketio
+from functools import wraps
 
 WS = ""
 url_ws = "wss://stgapi.cf:7000/ws/"
+
+def run_only_one_instance(redis_addr: str = "redis"):
+    def real_decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                sentinel = Redis(host=redis_addr).incr(func.__module__+func.__name__ + str(args) + str(kwargs))
+                if sentinel == 1:
+                    return func(*args, **kwargs)
+                else:
+                    pass
+                Redis(host=redis_addr).decr(func.__module__+func.__name__ + str(args) + str(kwargs))
+            except Exception as e:
+                Redis(host=redis_addr).decr(func.__module__+func.__name__ + str(args) + str(kwargs))
+                error(e)
+
+        return wrapper
+
+    return real_decorator
+
 
 sio = socketio.Client()
 
@@ -638,7 +660,8 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
 
 # POST Relatorio excel_b_total_icms_ipi
 @router.post('/excel_b_total_icms_ipi/')
-# @cache(expire=60)
+@run_only_one_instance("name_"+"xlsx_b_total_icms_ipi")
+
 async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):
     global url_ws, WS    
     dados = await info.json()
@@ -1405,7 +1428,7 @@ async def del_ajuste_apuracao_icms(info : Request, current_user:  usuario_schema
     except:
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         WS.send(msg)
-        
+
     async with db as session:        
         id = dados['post_data']['data'].split('|')[0]
         
