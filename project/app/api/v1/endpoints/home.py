@@ -576,7 +576,7 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
 # POST Relatorio excel_b_total_icms_ipi
 @router.post('/excel_b_total_icms_ipi/')
 # @cache(expire=60)
-async def b_total_icms_ipi(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
+async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     dados = dict(dados)
