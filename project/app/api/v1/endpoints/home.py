@@ -232,10 +232,15 @@ async def excel_checklist_icms_ipi_faltantes(info : Request, background_tasks: B
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     base = dados.get('base')
-    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     try:
         task = excel_checklist_icms_ipi_faltantes_task.delay(dados)
-        ws.send(str(task.get()).replace("'",'"'))
+        msg = f"""{str(task.get()).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         
         await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
             "title": f"O Sistema gerou um arquivo em formato Excel",
@@ -255,7 +260,7 @@ async def excel_checklist_icms_ipi_faltantes(info : Request, background_tasks: B
             "msg":  str(task.get())
         }     
     except Exception as e:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         await send_email_async("Erro no Sistema", dados.get('email'), {
             "title": f"Ocorreu um erro: { e.args[0] }",
             "page": dados.get('page'),
@@ -275,7 +280,12 @@ async def excel_checklist_icms_ipi_faltantes(info : Request, background_tasks: B
         "page": f"{dados.get('page')}",
         "erro" : 1
         }
-        ws.send(str(x).replace("'",'"'))
+        msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         return {
             "erro": "sim", 
             "data": "data",
@@ -288,11 +298,16 @@ async def excel_apuracao_deb_pis_cofins(info : Request, background_tasks: Backgr
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     base = dados.get('base')
-    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     try:
         task = apuracao_deb_pis_cofins_task.delay(dados)        
         # task = apuracao_deb_pis_cofins_task(dados)        
-        ws.send(str(task.get()).replace("'",'"'))
+        msg = f"""{str(task.get()).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         
         await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
             "title": f"O Sistema gerou um arquivo em formato Excel",
@@ -312,7 +327,7 @@ async def excel_apuracao_deb_pis_cofins(info : Request, background_tasks: Backgr
             "msg":  str(task.get())
         }     
     except Exception as e:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         await send_email_async("Erro no Sistema", dados.get('email'), {
             "title": f"Ocorreu um erro: { e.args[0] }",
             "page": dados.get('page'),
@@ -333,7 +348,12 @@ async def excel_apuracao_deb_pis_cofins(info : Request, background_tasks: Backgr
         "erro" : 1
         }
 
-        ws.send(str(x).replace("'",'"'))
+        msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         return {
             "erro": "sim", 
             "data": "data",
@@ -347,11 +367,16 @@ async def excel_apuracao_icms_ipi(info : Request, background_tasks: BackgroundTa
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     base = dados.get('base')
-    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     try:
         task = apuracao_icms_ipi_task.delay(dados)        
         # task = apuracao_icms_ipi_task(dados)        
-        ws.send(str(task.get()).replace("'",'"'))
+        msg = f"""{str(task.get()).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         
         await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
             "title": f"O Sistema gerou um arquivo em formato Excel",
@@ -371,7 +396,7 @@ async def excel_apuracao_icms_ipi(info : Request, background_tasks: BackgroundTa
             "msg":  str(task.get())
         }     
     except Exception as e:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         await send_email_async("Erro no Sistema", dados.get('email'), {
             "title": f"Ocorreu um erro: { e.args[0] }",
             "page": dados.get('page'),
@@ -392,7 +417,12 @@ async def excel_apuracao_icms_ipi(info : Request, background_tasks: BackgroundTa
         "erro" : 1
         }
 
-        ws.send(str(x).replace("'",'"'))
+        msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         return {
             "erro": "sim", 
             "data": "data",
@@ -405,11 +435,16 @@ async def excel_balancete_contabil(info : Request, background_tasks: BackgroundT
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     base = dados.get('base')
-    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     try:
         # task = balancete_contabil_task.delay(dados)        
         task = balancete_contabil_task(dados)        
-        ws.send(str(task.get()).replace("'",'"'))
+        msg = f"""{str(task.get()).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         
         await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
             "title": f"O Sistema gerou um arquivo em formato Excel",
@@ -429,7 +464,7 @@ async def excel_balancete_contabil(info : Request, background_tasks: BackgroundT
             "msg":  str(task.get())
         }     
     except Exception as e:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         await send_email_async("Erro no Sistema", dados.get('email'), {
             "title": f"Ocorreu um erro: { e.args[0] }",
             "page": dados.get('page'),
@@ -450,7 +485,12 @@ async def excel_balancete_contabil(info : Request, background_tasks: BackgroundT
         "erro" : 1
         }
 
-        ws.send(str(x).replace("'",'"'))
+        msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         return {
             "erro": "sim", 
             "data": "data",
@@ -464,11 +504,16 @@ async def excel_apuracao_cred_pis_cofins(info : Request, background_tasks: Backg
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     base = dados.get('base')
-    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     try:
         task = apuracao_cred_pis_cofins_task.delay(dados)        
         # task = apuracao_cred_pis_cofins_task(dados)        
-        ws.send(str(task.get()).replace("'",'"'))
+        msg = f"""{str(task.get()).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         
         await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
             "title": f"O Sistema gerou um arquivo em formato Excel",
@@ -488,7 +533,7 @@ async def excel_apuracao_cred_pis_cofins(info : Request, background_tasks: Backg
             "msg":  str(task.get())
         }     
     except Exception as e:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         await send_email_async("Erro no Sistema", dados.get('email'), {
             "title": f"Ocorreu um erro: { e.args[0] }",
             "page": dados.get('page'),
@@ -509,7 +554,12 @@ async def excel_apuracao_cred_pis_cofins(info : Request, background_tasks: Backg
         "erro" : 1
         }
 
-        ws.send(str(x).replace("'",'"'))
+        msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         return {
             "erro": "sim", 
             "data": "data",
@@ -524,10 +574,15 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
     dados = await info.json()
     dados = json.loads(dados['post_data'])
     base = dados.get('base')
-    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     try:
         task = ajuste_apuracao_icms_task.delay(dados)        
-        ws.send(str(task.get()).replace("'",'"'))
+        msg = f"""{str(task.get()).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         
         await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
             "title": f"O Sistema gerou um arquivo em formato Excel",
@@ -547,7 +602,7 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
             "msg":  str(task.get())
         }     
     except Exception as e:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         await send_email_async("Erro no Sistema", dados.get('email'), {
             "title": f"Ocorreu um erro: { e.args[0] }",
             "page": dados.get('page'),
@@ -568,7 +623,12 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
         "erro" : 1
         }
 
-        ws.send(str(x).replace("'",'"'))
+        msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         return {
             "erro": "sim", 
             "data": "data",
@@ -1257,14 +1317,20 @@ async def get_filial_uf_dataIni(base: str, current_user:  usuario_schema.AuthUse
 @router.delete('/del_table')
 async def del_table(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     dados = await info.json()
-    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     x = {
         "data": f"Aguarde procurando o arquivo!",
         "userId": f"{dados['post_data']['userId']}",
         "page": f"{dados['post_data']['page']}",
         "erro" : 0
     }
-    ws.send(str(x).replace("'",'"'))
+    msg = f"""{str(x).replace("'",'"')}"""
+    try:
+        WS.send(msg)
+    except:
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        WS.send(msg)
+
     async with db as session:        
         id = dados['post_data']['data'].split('|')[0]
         
@@ -1285,7 +1351,12 @@ async def del_table(info : Request, current_user:  usuario_schema.AuthUserSchema
                 "page": f"{dados['post_data']['page']}",
                 "erro" : 0
             }
-            ws.send(str(x).replace("'",'"'))
+            msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         else:
             erro = True
             msg_ = f'O Arquivo não existe: {urlxls}'
@@ -1295,7 +1366,12 @@ async def del_table(info : Request, current_user:  usuario_schema.AuthUserSchema
                 "page": f"{dados['post_data']['page']}",
                 "erro" : 1
             }
-            ws.send(str(x).replace("'",'"'))
+            msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
 
         sql = f"""
            DELETE FROM `gerencial`.`ctrl_arq_excel_contabil` WHERE `id` = {id}         
@@ -1316,14 +1392,20 @@ async def del_table(info : Request, current_user:  usuario_schema.AuthUserSchema
 @router.delete('/del_table_ajuste_apuracao_icms')
 async def del_ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     dados = await info.json()
-    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     x = {
         "data": f"Aguarde procurando o arquivo!",
         "userId": f"{dados['post_data']['userId']}",
         "page": f"{dados['post_data']['page']}",
         "erro" : 0
     }
-    ws.send(str(x).replace("'",'"'))
+    msg = f"""{str(x).replace("'",'"')}"""
+    try:
+        WS.send(msg)
+    except:
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        WS.send(msg)
+        
     async with db as session:        
         id = dados['post_data']['data'].split('|')[0]
         
@@ -1344,7 +1426,12 @@ async def del_ajuste_apuracao_icms(info : Request, current_user:  usuario_schema
                 "page": f"{dados['post_data']['page']}",
                 "erro" : 0
             }
-            ws.send(str(x).replace("'",'"'))
+            msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
         else:
             erro = True
             msg_ = f'O Arquivo não existe: {urlxls}'
@@ -1354,7 +1441,12 @@ async def del_ajuste_apuracao_icms(info : Request, current_user:  usuario_schema
                 "page": f"{dados['post_data']['page']}",
                 "erro" : 1
             }
-            ws.send(str(x).replace("'",'"'))
+            msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WS.send(msg)
+        except:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WS.send(msg)
 
         sql = f"""
            DELETE FROM `gerencial`.`ctrl_arq_excel_contabil` WHERE `id` = {id}         

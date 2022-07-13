@@ -1,3 +1,4 @@
+from ast import Global
 import json
 import os
 import random
@@ -56,8 +57,9 @@ def notify(msg, ws, rs):
         }
     try: 
         ws.send(str(x).replace("'",'"'))
+        return True
     except:
-        pass
+        return False
 
 
 @celery_.on_after_configure.connect
@@ -86,7 +88,7 @@ def send_email(email):
 def excel_checklist_icms_ipi_faltantes_task(rs):
 
     try:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     except Exception as e:
         raise e 
 
@@ -102,14 +104,20 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
             AND sped_icms_ipi_ctrl.DATA_INI BETWEEN '{data1}' AND '{data2}'
       """    
 
-    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+    msg = f'Conectando com a Base: DB_{base}'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     try:
         engine = create_engine(f"{URL_CONNECT}/DB_{base}")
     except Exception as e:
         raise e
 
-    notify('Base conectada', ws, rs)
+    msg = f'Base conectada'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     sql = f"""
         SELECT
@@ -130,7 +138,10 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
 
     if len(rst) < 1000000:
         df = pd.DataFrame(columns=['cnpj', 'data1', 'data2'])
-        notify('Ok abaixo de 1 milhão OK', ws, rs)
+        msg = f'Ok abaixo de 1 milhão OK'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
         
         sql = text(f"""
             SELECT DISTINCT CNPJ FROM `DB_{base}`.`sped_icms_ipi_ctrl`
@@ -337,12 +348,17 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
 
         workbook.close()
 
-
-        notify('Arquivo criado com Sucesso', ws, rs)
+        msg = f'Arquivo criado com Sucesso, gerando Link, pode demorar'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         rs['nome_arquivo'] = arq_excel
         rs['total_registros'] = rst.qtd           
-        notify('Retornando a MSG', ws, rs)
+        msg = f'Retornando a MSG'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
                 
         ren(rs,'id_user', 'userId') 
         ren(rs,'cnpj_conta', 'base') 
@@ -373,7 +389,7 @@ def apuracao_cred_pis_cofins_task(rs):
     # raise Exception('Erro No Sistemas')
 
     try:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     except Exception as e:
         raise e 
     
@@ -386,14 +402,20 @@ def apuracao_cred_pis_cofins_task(rs):
             AND sped_pis_cofins_ctrl.DATA_INI BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}'
       """
 
-    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+    msg = f'Conectando com a Base: DB_{base}'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     try:
         engine = create_engine(f"{URL_CONNECT}/DB_{base}")
     except Exception as e:
         raise e    
 
-    notify('Base conectada', ws, rs)
+    msg = f'Base conectada'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     sql = f"""
              SELECT
@@ -498,7 +520,10 @@ def apuracao_cred_pis_cofins_task(rs):
                 {value['sql_data']}                    
                """        
 
-        notify('Ok abaixo de 1 milhão OK', ws, rs)
+        msg = f'Ok abaixo de 1 milhão OK'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         try:
             with engine.connect() as conn:
@@ -523,7 +548,10 @@ def apuracao_cred_pis_cofins_task(rs):
             arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.xlsx'
         
         urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
-        notify(f'Criando o arquivo: {arq_excel}', ws, rs) 
+        msg = f'criando o arquivo'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         try:
             wb = Workbook()
@@ -533,12 +561,18 @@ def apuracao_cred_pis_cofins_task(rs):
         except Exception as e:
             raise e 
 
-        notify('Arquivo criado com Sucesso', ws, rs)
+        msg = f'Arquivo criado com Sucesso, gerando Link, pode demorar'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         rs['nome_arquivo'] = arq_excel   
         rs['total_registros'] = max(list(rst.qtd))
         
-        notify('Retornando a MSG', ws, rs)
+        msg = f'Retornando a MSG'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
       
         ren(rs,'id_user', 'userId') 
         ren(rs,'cnpj_conta', 'base') 
@@ -569,7 +603,7 @@ def apuracao_deb_pis_cofins_task(rs):
     # raise Exception('Erro No Sistemas')
 
     try:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     except Exception as e:
         raise e 
     
@@ -582,14 +616,20 @@ def apuracao_deb_pis_cofins_task(rs):
             AND sped_pis_cofins_ctrl.DATA_INI BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}'
       """
 
-    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+    msg = f'Conectando com a Base: DB_{base}'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     try:
         engine = create_engine(f"{URL_CONNECT}/DB_{base}")
     except Exception as e:
         raise e    
 
-    notify('Base conectada', ws, rs)
+    msg = f'Base conectada'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     sql = f"""
              SELECT
@@ -701,7 +741,10 @@ def apuracao_deb_pis_cofins_task(rs):
                         M200_M600, DATA_INI ASC
                """        
 
-        notify('Ok abaixo de 1 milhão OK', ws, rs)
+        msg = f'Ok abaixo de 1 milhão OK'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         try:
             with engine.connect() as conn:
@@ -730,7 +773,10 @@ def apuracao_deb_pis_cofins_task(rs):
             arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.xlsx'
         
         urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
-        notify(f'Criando o arquivo: {arq_excel}', ws, rs) 
+        msg = f'criando o arquivo'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         try:
             wb = Workbook()
@@ -740,12 +786,18 @@ def apuracao_deb_pis_cofins_task(rs):
         except Exception as e:
             raise e 
 
-        notify('Arquivo criado com Sucesso', ws, rs)
+        msg = f'Arquivo criado com Sucesso, gerando Link, pode demorar'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         rs['nome_arquivo'] = arq_excel   
         rs['total_registros'] = max(list(rst.qtd))
         
-        notify('Retornando a MSG', ws, rs)
+        msg = f'Retornando a MSG'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
       
         ren(rs,'id_user', 'userId') 
         ren(rs,'cnpj_conta', 'base') 
@@ -777,7 +829,7 @@ def ajuste_apuracao_icms_task(rs):
     # raise Exception('Erro No Sistemas')
 
     try:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     except Exception as e:
         raise e 
     
@@ -790,14 +842,20 @@ def ajuste_apuracao_icms_task(rs):
             AND sped_icms_ipi_ctrl.DATA_INI BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}'
       """
 
-    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+    msg = f'Conectando com a Base: DB_{base}'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     try:
         engine = create_engine(f"{URL_CONNECT}/DB_{base}")
     except Exception as e:
         raise e    
 
-    notify('Base conectada', ws, rs)
+    msg = f'Base conectada'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
     
     sql = f"""
         SELECT
@@ -842,7 +900,10 @@ def ajuste_apuracao_icms_task(rs):
             sped_icms_ipi_ctrl.CANCELADO IS NULL
                 {value['sql_data']}
         """
-        notify('Ok abaixo de 1 milhão OK', ws, rs)
+        msg = f'Ok abaixo de 1 milhão OK'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         try:
             with engine.connect() as conn:
@@ -864,7 +925,10 @@ def ajuste_apuracao_icms_task(rs):
 
         urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
 
-        notify(f'Criando o arquivo: {arq_excel}', ws, rs)  
+        msg = f'criando o arquivo'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs) 
 
         try:
             wb = Workbook()
@@ -874,11 +938,17 @@ def ajuste_apuracao_icms_task(rs):
         except Exception as e:
             raise e 
 
-        notify('Arquivo criado com Sucesso', ws, rs)
+        msg = f'Arquivo criado com Sucesso, gerando Link, pode demorar'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         rs['nome_arquivo'] = arq_excel   
         rs['total_registros'] = rst.qtd
-        notify('Retornando a MSG', ws, rs)
+        msg = f'Retornando a MSG'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
       
         ren(rs,'id_user', 'userId') 
         ren(rs,'cnpj_conta', 'base') 
@@ -910,7 +980,7 @@ def apuracao_icms_ipi_task(rs):
     filtro = rs.get('tipoFiltro')
 
     try:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     except Exception as e:
         raise e 
     
@@ -923,14 +993,20 @@ def apuracao_icms_ipi_task(rs):
             AND sped_icms_ipi_ctrl.DATA_INI BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}'
       """
 
-    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+    msg = f'Conectando com a Base: DB_{base}'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     try:
         engine = create_engine(f"{URL_CONNECT}/DB_{base}")
     except Exception as e:
         raise e    
 
-    notify('Base conectada', ws, rs)
+    msg = f'Base conectada'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
     
     sql = f"""
         SELECT
@@ -1033,7 +1109,10 @@ def apuracao_icms_ipi_task(rs):
 	               sped_icms_ipi_ctrl.DATA_INI ASC                   
             """
 
-        notify('Ok abaixo de 1 milhão OK', ws, rs)
+        msg = f'Ok abaixo de 1 milhão OK'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         try:
             with engine.connect() as conn:
@@ -1069,7 +1148,10 @@ def apuracao_icms_ipi_task(rs):
 
         urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
 
-        notify(f'Criando o arquivo: {arq_excel}', ws, rs)  
+        msg = f'criando o arquivo'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs) 
 
         try:
             wb = Workbook()
@@ -1079,11 +1161,17 @@ def apuracao_icms_ipi_task(rs):
         except Exception as e:
             raise e 
 
-        notify('Arquivo criado com Sucesso', ws, rs)
+        msg = f'Arquivo criado com Sucesso, gerando Link, pode demorar'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         rs['nome_arquivo'] = arq_excel   
         rs['total_registros'] = rst.qtd
-        notify('Retornando a MSG', ws, rs)
+        msg = f'Retornando a MSG'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
       
         ren(rs,'id_user', 'userId') 
         ren(rs,'cnpj_conta', 'base') 
@@ -1116,7 +1204,7 @@ def balancete_contabil_task(rs):
     # raise Exception('Erro No Sistemas')
     
     try:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     except Exception as e:
         raise e 
     
@@ -1147,14 +1235,20 @@ def balancete_contabil_task(rs):
             value['sql_codcta'] = f" AND `COD_CTA` = '{str(rs.get('codConta'))}'"
 
     
-    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+    msg = f'Conectando com a Base: DB_{base}'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     try:
         engine = create_engine(f"{URL_CONNECT}/DB_{base}")
     except Exception as e:
         raise e    
 
-    notify('Base conectada', ws, rs)
+    msg = f'Base conectada'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
     
     sql = f"""
             SELECT count(*) as qtd FROM `DB_{base}`.`dw_balancete_contabil_geral` 
@@ -1182,7 +1276,10 @@ def balancete_contabil_task(rs):
 
         """
 
-        notify('Ok abaixo de 1 milhão OK', ws, rs)
+        msg = f'Ok abaixo de 1 milhão OK'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         try:
             with engine.connect() as conn:
@@ -1210,7 +1307,10 @@ def balancete_contabil_task(rs):
         df1['VL_SLD_FIN'] = df1['VL_SLD_FIN'].str.replace(',','.').astype("float64").fillna(0)
         df1['VL_SLD_FIN_I355'] = df1['VL_SLD_FIN_I355'].str.replace(',','.').astype("float64").fillna(0)
 
-        notify(f'Criando o arquivo: {arq_excel}', ws, rs)  
+        msg = f'criando o arquivo'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs) 
 
         try:
             wb = Workbook()
@@ -1226,11 +1326,17 @@ def balancete_contabil_task(rs):
         except Exception as e:
             raise e 
 
-        notify('Arquivo criado com Sucesso', ws, rs)
+        msg = f'Arquivo criado com Sucesso, gerando Link, pode demorar'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         rs['nome_arquivo'] = arq_excel   
         # rs['total_registros'] = rst.qtd
-        notify('Retornando a MSG', ws, rs)
+        msg = f'Retornando a MSG'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
       
         ren(rs,'id_user', 'userId') 
         ren(rs,'cnpj_conta', 'base') 
@@ -1258,12 +1364,16 @@ def balancete_contabil_task(rs):
 
         return msg_
 
+WS = ""
+url_ws = "wss://stgapi.cf:7000/ws/"
+
 @shared_task
 def b_total_icms_ipi_task(rs):
+    global WS, url_ws
     # raise Exception('Erro No Sistemas')
     
     try:
-        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     except Exception as e:
         raise e 
     
@@ -1299,14 +1409,20 @@ def b_total_icms_ipi_task(rs):
                 AND	(DATA_INI BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}')
             """      
     
-    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+    msg = f'Conectando com a Base: DB_{base}'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     try:
         engine = create_engine(f"{URL_CONNECT}/DB_{base}")
     except Exception as e:
         raise e    
 
-    notify('Base conectada', ws, rs)
+    msg = f'Base conectada'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
     
     sql = f"""        
         SELECT
@@ -1652,8 +1768,24 @@ def b_total_icms_ipi_task(rs):
                 """
 
     try:
+        msg = f'Conectando Select'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)   
+        
         with engine.connect() as conn:
+            
+            msg = f'Preparando Select, pode demorar'
+            if notify(f'{msg}', WS, rs) == False: 
+                WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+                notify(f'{msg}', WS, rs)   
+            
             df1 = pd.read_sql_query(sql, conn)
+            
+            msg = f'Select Transformada'
+            if notify(f'{msg}', WS, rs) == False: 
+                WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+                notify(f'{msg}', WS, rs) 
     except Exception as e:
         raise e
         
@@ -1665,6 +1797,11 @@ def b_total_icms_ipi_task(rs):
         arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.xlsx'
 
     urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
+
+    msg = f'criando o arquivo'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     if len(df1) > 1000000:
         msg_ = {
@@ -1708,7 +1845,10 @@ def b_total_icms_ipi_task(rs):
     
         urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}")
 
-        notify(f'Criando o arquivo: {arq_excel}', ws, rs)  
+        msg = f'criando o arquivo...'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
 
         try:
             wb = Workbook()
@@ -1724,11 +1864,18 @@ def b_total_icms_ipi_task(rs):
         except Exception as e:
             raise e 
 
-    notify('Arquivo criado com Sucesso', ws, rs)
+    msg = f'preparando o Link, pode demorar'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     rs['nome_arquivo'] = arq_excel   
     rs['total_registros'] = len(df1)
-    notify('Retornando a MSG', ws, rs)
+
+    msg = f'Retornando a MSG'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     ren(rs,'id_user', 'userId') 
     ren(rs,'cnpj_conta', 'base') 
