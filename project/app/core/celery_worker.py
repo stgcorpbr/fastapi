@@ -1724,34 +1724,34 @@ def b_total_icms_ipi_task(rs):
         except Exception as e:
             raise e 
 
-        notify('Arquivo criado com Sucesso', ws, rs)
+    notify('Arquivo criado com Sucesso', ws, rs)
 
-        rs['nome_arquivo'] = arq_excel   
-        rs['total_registros'] = len(df1)
-        notify('Retornando a MSG', ws, rs)
+    rs['nome_arquivo'] = arq_excel   
+    rs['total_registros'] = len(df1)
+    notify('Retornando a MSG', ws, rs)
 
-        ren(rs,'id_user', 'userId') 
-        ren(rs,'cnpj_conta', 'base') 
-        ren(rs,'cliente', 'nomeEmpresa') 
-        ren(rs,'tipo_relatorio', 'page')         
-        ren(rs,'user_name', 'username')
-        ren(rs,'dados_cfop', 'cfop')
+    ren(rs,'id_user', 'userId') 
+    ren(rs,'cnpj_conta', 'base') 
+    ren(rs,'cliente', 'nomeEmpresa') 
+    ren(rs,'tipo_relatorio', 'page')         
+    ren(rs,'user_name', 'username')
+    ren(rs,'dados_cfop', 'cfop')
 
-        rs.pop('idEmpresa') 
-        rs.pop('tamanho') 
+    rs.pop('idEmpresa') 
+    rs.pop('tamanho') 
 
-        try:
-            gravabanco_ctrl_arq_excel(rs)
-        except Exception as e:
-            raise e 
-                        
-        msg_ = {
-            "data": "Criado com Sucesso",
-            "userId" : f"{rs['id_user']}",
-            "page": f"{rs['tipo_relatorio']}",
-            "erro" : 0,
-            "link" : 1,
-            "msg": f"https://stgapi.cf:9993/{arq_excel}",        
-        }
+    try:
+        gravabanco_ctrl_arq_excel(rs)
+    except Exception as e:
+        raise e 
+                    
+    msg_ = {
+        "data": "Criado com Sucesso",
+        "userId" : f"{rs['id_user']}",
+        "page": f"{rs['tipo_relatorio']}",
+        "erro" : 0,
+        "link" : 1,
+        "msg": f"https://stgapi.cf:9993/{arq_excel}",        
+    }
 
-        return msg_
+    return msg_
