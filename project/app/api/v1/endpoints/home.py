@@ -3,6 +3,7 @@ from datetime import datetime
 import json
 import os, re
 import random
+import pandas as pd
 import sqlalchemy as sa
 
 from typing import List
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core import deps
 from models import home_model, user_model, relatorio_model
 from core.auth import autenticar, criar_token_acesso
-from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, apuracao_icms_ipi_task, balancete_contabil_task, excel_checklist_icms_ipi_faltantes_task
+from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, apuracao_icms_ipi_task, b_total_icms_ipi_task, balancete_contabil_task, excel_checklist_icms_ipi_faltantes_task
 from websocket import create_connection
 
 from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schema
@@ -148,6 +149,78 @@ async def get_DwIcmsIpiEntradas(db: AsyncSession = Depends(deps.get_session_gere
         clientes = result.fetchall()
         
         return clientes
+
+# POST All Relatorios
+@router.post('/get_uf_filial/')
+@cache(expire=60)
+async def get_uf_filial(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    async with db as session:
+        dados = await info.json()
+        dados = dados['post_data']
+        base = dados.get('base')
+        page = dados.get('page')
+
+        if page == 'b_total_icms_ipi':
+            sql = f"""            
+                SELECT DISTINCT UF FROM `DB_{base}`.`sped_icms_ipi_ctrl`
+            """
+        elif page == 'b_total_pis_cofins':
+            sql = f"""            
+                SELECT 'SP' as UF
+            """
+
+        uf_rst = await session.execute(sa.text(sql))
+
+        if page == 'b_total_icms_ipi':
+            sql = f"""            
+                SELECT DISTINCT
+                    DATE_FORMAT( DATA_INI, "%Y" ) DATA_INI 
+                FROM
+                    DB_{base}.`sped_icms_ipi_ctrl` 
+                WHERE
+                    `ENVIO` = '1' 
+                    AND `CANCELADO` IS NULL 
+                    AND `DW_ENTRADAS` = '1' 
+                    OR `DW_SAIDAS` = '1'
+            """
+
+            data_ini_rst = await session.execute(sa.text(sql))
+
+            sql = f"""
+                SELECT DISTINCT CST_ICMS FROM DB_{base}.dw_icms_ipi_entradas 
+                UNION
+                SELECT DISTINCT CST_ICMS FROM DB_{base}.dw_icms_ipi_saidas 
+            """
+
+            cst_ini_rst = await session.execute(sa.text(sql))
+            
+        elif page == 'b_total_pis_cofins':
+            sql = f""" 
+                SELECT DISTINCT
+                    DATE_FORMAT( DATA_INI, "%Y" ) DATA_INI 
+                FROM
+                    DB_{base}.`sped_pis_cofins_ctrl` 
+                WHERE
+                    `ENVIO` = '1' 
+                    AND `CANCELADO` IS NULL 
+                    AND `DW_ENTRADAS` = '1' 
+                    OR `DW_SAIDAS` = '1'
+            """
+            data_ini_rst = await session.execute(sa.text(sql))
+
+            sql = f"""
+                SELECT DISTINCT CST_PIS FROM DB_{base}.dw_pis_cofins_entradas 
+                UNION 
+                SELECT DISTINCT CST_PIS FROM DB_{base}.dw_pis_cofins_saidas 
+            """
+
+            cst_ini_rst = await session.execute(sa.text(sql))
+            
+        return {               
+            "uf": uf_rst.fetchall(),
+            "data_ini": data_ini_rst.fetchall(),
+            "cst": cst_ini_rst.fetchall(),
+        }
 
 # POST Relatorio excel_checklist_icms_ipi_faltantes
 @router.post('/excel_checklist_icms_ipi_faltantes')
@@ -499,6 +572,67 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
             "rst": "2"
         }     
 
+
+# POST Relatorio excel_b_total_icms_ipi
+@router.post('/excel_b_total_icms_ipi/')
+# @cache(expire=60)
+async def b_total_icms_ipi(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):    
+    dados = await info.json()
+    dados = json.loads(dados['post_data'])
+    dados = dict(dados)
+    base = dados.get('base')
+    ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    try:
+        task = b_total_icms_ipi_task.delay(dados)        
+        ws.send(str(task.get()).replace("'",'"'))
+        
+        await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
+            "title": f"O Sistema gerou um arquivo em formato Excel",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+            "arquivo" : task.get()['msg']
+        })
+
+        return {
+            "erro": False, 
+            "page": f"{dados.get('page')}",
+            "rst": "2",
+            "userId": f"{dados.get('userId')}",
+            "msg":  str(task.get())
+        }     
+    except Exception as e:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+        await send_email_async("Erro no Sistema", dados.get('email'), {
+            "title": f"Ocorreu um erro: { e.args[0] }",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+        })        
+
+        print('erro aqui')
+
+        t =  re.sub('\W+', '', e.args[0])
+
+        x = {
+        "data": f"Ocorreu um erro: { t }",
+        "userId": f"{dados.get('userId')}",
+        "page": f"{dados.get('page')}",
+        "erro" : 1
+        }
+
+        ws.send(str(x).replace("'",'"'))
+        return {
+            "erro": "sim", 
+            "data": "data",
+            "rst": "2"
+        }     
+
+
 # POST All Relatorios
 @router.post('/checklist_icms_ipi_faltantes/')
 @cache(expire=60)
@@ -609,6 +743,155 @@ async def apuracao_icms_ipi(info : Request, current_user:  usuario_schema.AuthUs
             "data": data_,
             "rst": str(qtd)
         }
+
+
+# POST All Relatorios
+@router.post('/b_total_icms_ipi/')
+# @cache(expire=60)
+async def b_total_icms_ipi(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    async with db as session:
+        dados = await info.json()
+        dados = json.loads(dados['post_data'])
+        base = dados.get('base')
+        
+        value = {
+            'DATA_INI' : '',
+            'UF_FILIAL' : '',
+            'CNPJ_FILIAL' : '',
+            'CST' : ''
+        }
+
+        if len(dados.get('data_ini')) > 0 and len(dados.get('data_fim')) > 0:
+            value['sql_data'] = f""" 
+                AND DATA_INI 
+                BETWEEN '{ convertData(dados.get('data_ini'))}' AND '{ convertData(dados.get('data_fim'))}' 
+            """
+
+        if len(dados.get('cst')) > 0:
+            value['CST'] = f" AND CST_ICMS = {dados.get('cst')[0]}" if len(dados.get('cst')) == 1 else f" AND CST_ICMS in {str(tuple(dados.get('cst')))}"
+
+        if len(dados.get('uf')) > 0:
+            value['UF_FILIAL'] = f"  AND UF_FILIAL = '{str(dados.get('uf'))}' "
+
+        if len(dados.get('cnpj_filial')) > 0:
+
+            quebra_cnpj = dados.get('cnpj_filial').split(',')
+            value['CNPJ_FILIAL'] = f" AND `CNPJ_FILIAL` = '{str(dados.get('cnpj_filial'))}'"
+
+            if len(quebra_cnpj) > 1:
+                value['CNPJ_FILIAL'] = f" AND `CNPJ_FILIAL` IN {str(tuple([ str(x) for x in quebra_cnpj]))}"        
+
+        sql = f"""
+        SELECT
+                dw_icms_ipi_entradas.ID_ITEM,
+                dw_icms_ipi_entradas.VL_ITEM,
+                dw_icms_ipi_entradas.CFOP,
+                CNPJ_FILIAL
+            FROM
+                `DB_{base}`.dw_icms_ipi_entradas
+            WHERE
+                ID_ITEM IS NOT NULL 
+                {value['DATA_INI']} 
+                {value['UF_FILIAL']} 
+                {value['CNPJ_FILIAL']}
+                {value['CST']}             
+        """ 
+
+        if dados.get('filtrEntradaSaida') == 'ambos':
+            sql = f"""        
+            SELECT
+                dw_icms_ipi_saidas.ID_ITEM,
+                dw_icms_ipi_saidas.VL_ITEM,
+                dw_icms_ipi_saidas.CFOP,
+                CNPJ_FILIAL
+            FROM
+                `DB_{base}`.dw_icms_ipi_saidas
+            WHERE
+                ID_ITEM IS NOT NULL
+                {value['DATA_INI']} 
+                {value['UF_FILIAL']} 
+                {value['CNPJ_FILIAL']}
+                {value['CST']}
+            UNION
+            SELECT
+                dw_icms_ipi_entradas.ID_ITEM,
+                dw_icms_ipi_entradas.VL_ITEM,
+                dw_icms_ipi_entradas.CFOP,
+                CNPJ_FILIAL
+            FROM
+                `DB_{base}`.dw_icms_ipi_entradas
+            WHERE
+                ID_ITEM IS NOT NULL 
+                {value['DATA_INI']} 
+                {value['UF_FILIAL']} 
+                {value['CNPJ_FILIAL']}
+                {value['CST']}                
+            """
+        elif dados.get('filtrEntradaSaida') == 'saida':
+            sql = f"""        
+            SELECT
+                dw_icms_ipi_saidas.ID_ITEM,
+                dw_icms_ipi_saidas.VL_ITEM,
+                dw_icms_ipi_saidas.CFOP,
+                CNPJ_FILIAL
+            FROM
+                `DB_{base}`.dw_icms_ipi_saidas
+            WHERE
+                ID_ITEM IS NOT NULL
+                {value['DATA_INI']} 
+                {value['UF_FILIAL']} 
+                {value['CNPJ_FILIAL']}
+                {value['CST']}
+            """
+
+        result = await session.execute(sa.text(sql))
+        rst2 = pd.DataFrame(data=result.fetchall())
+        rst2['CFOP'].fillna('9999', inplace=True)
+
+        df_linhas = pd.DataFrame()
+        vl_item =  rst2.groupby(rst2['CFOP'])['VL_ITEM'].sum()
+        qtd_linhas  = rst2.groupby(rst2['CFOP'])['VL_ITEM'].count()
+
+        df_linhas['NULL'] = 'null'
+        df_linhas['CFOP'] = qtd_linhas.index
+        df_linhas['VL_ITEM'] = vl_item.values
+        df_linhas['QTD_LINHAS'] = qtd_linhas.values
+        df_linhas['PROPOR_VALOR'] = list(map('{:.2f}%'.format,( qtd_linhas.values / qtd_linhas.sum())))
+        df_linhas['PROPOR_LINHAS'] = list(map('{:.2f}%'.format,( vl_item.values / vl_item.sum())))
+
+        sql = f"""             
+            SELECT tb_cfop.ICMS, 
+            tb_cfop.IPI,
+            tb_cfop.CFOP as ID
+        FROM
+            gerencial.tb_cfop     
+            """
+        result = await session.execute(sa.text(sql))
+        df1 = pd.DataFrame(data=result.fetchall())
+
+        df2 = pd.merge(df_linhas,df1, how='left', left_on='CFOP', right_on='ID')
+        df2.fillna(0, inplace=True)
+        df2.drop(columns='ID', inplace=True)
+
+        sql = f"""             
+            SELECT cfop FROM `gerencial`.`cfop_credito`;
+        """
+        result = await session.execute(sa.text(sql))
+        df_ = pd.DataFrame(data=result.fetchall())
+
+        df2['GERADOR_CRED_PVA'] = df2['CFOP'].apply(lambda x: x in list(df_['cfop']))
+        df2['GERADOR_CRED_PVA'] = df2['GERADOR_CRED_PVA'].replace(True,'SIM')
+        df2['GERADOR_CRED_PVA'] = df2['GERADOR_CRED_PVA'].replace(False,'NÃO')
+
+        result = df2.to_json(orient="split")
+        parsed = json.loads(result)
+               
+        return { 
+            "erro": False,
+            "data": parsed,
+            "rst": str(len(rst2))            
+        }
+
 
 # POST All Relatorios
 @router.post('/balancete_contabil/')

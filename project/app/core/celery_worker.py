@@ -1229,7 +1229,7 @@ def balancete_contabil_task(rs):
         notify('Arquivo criado com Sucesso', ws, rs)
 
         rs['nome_arquivo'] = arq_excel   
-        rs['total_registros'] = rst.qtd
+        # rs['total_registros'] = rst.qtd
         notify('Retornando a MSG', ws, rs)
       
         ren(rs,'id_user', 'userId') 
@@ -1241,6 +1241,504 @@ def balancete_contabil_task(rs):
         ren(rs,'cod_conta', 'codConta')       
         
         rs.pop('idEmpresa') 
+
+        try:
+            gravabanco_ctrl_arq_excel(rs)
+        except Exception as e:
+            raise e 
+                        
+        msg_ = {
+            "data": "Criado com Sucesso",
+            "userId" : f"{rs['id_user']}",
+            "page": f"{rs['tipo_relatorio']}",
+            "erro" : 0,
+            "link" : 1,
+            "msg": f"https://stgapi.cf:9993/{arq_excel}",        
+        }
+
+        return msg_
+
+@shared_task
+def b_total_icms_ipi_task(rs):
+    # raise Exception('Erro No Sistemas')
+    
+    try:
+        ws = create_connection(f"wss://stgapi.cf:7000/ws/{random.randint(10000, 99999)}")
+    except Exception as e:
+        raise e 
+    
+    dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
+    value = {        
+        'sql_cfop' : '',
+        'cfop_null' : '',
+        'DATA_INI' : '',
+        'geraCred' : ''
+    }
+
+    base = rs.get('base')
+    page = rs.get('page')
+    filtro = rs.get('filtro')
+
+    if len(rs.get('cfop')) > 0:
+
+         if '9999' in rs.get('cfop'):
+            value['cfop_null'] = f" OR `CFOP` IS NULL"
+
+         quebra_cfop = rs.get('cfop').split(',')
+
+         if str(rs.get('geraCred')) == True:
+            value['geraCred'] = f" AND (dw_icms_ipi_entradas.CFOP IN (SELECT cfop_credito.cfop FROM gerencial.cfop_credito) OR CFOP IS NULL)"
+
+         if len(quebra_cfop) > 1:
+               value['sql_cfop'] = f" AND `CFOP` IN {str(tuple([ str(x).strip() for x in quebra_cfop]))}"
+         else:
+               value['sql_cfop'] = f" AND `CFOP` = '{str(rs.get('cfop'))}'"
+
+         if len(rs.get('data_ini')) > 0 and len(rs.get('data_fim')) > 0:
+            value['DATA_INI'] = f""" 
+                AND	(DATA_INI BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}')
+            """      
+    
+    notify(f'Conectando com a Base: DB_{base}', ws, rs)
+
+    try:
+        engine = create_engine(f"{URL_CONNECT}/DB_{base}")
+    except Exception as e:
+        raise e    
+
+    notify('Base conectada', ws, rs)
+    
+    sql = f"""        
+        SELECT
+            dw_icms_ipi_entradas.ID_ITEM,
+            dw_icms_ipi_entradas.CHV_PK,
+            dw_icms_ipi_entradas.DATA_INI,              
+            dw_icms_ipi_entradas.CNPJ_FILIAL,
+            dw_icms_ipi_entradas.RAZAO_FILIAL,
+            dw_icms_ipi_entradas.UF_FILIAL,
+            dw_icms_ipi_entradas.REGISTRO,
+            (
+                CASE
+                    WHEN dw_icms_ipi_entradas.REGISTRO = 'D190' THEN CONCAT('CTe',dw_icms_ipi_entradas.CHV_NFE_CTE)
+                    WHEN dw_icms_ipi_entradas.REGISTRO = 'C170' THEN CONCAT('NFe',dw_icms_ipi_entradas.CHV_NFE_CTE)
+                    WHEN dw_icms_ipi_entradas.REGISTRO = 'C190' THEN CONCAT('NFe',dw_icms_ipi_entradas.CHV_NFE_CTE)
+                ELSE dw_icms_ipi_entradas.CHV_NFE_CTE
+                END
+                ) as CHV_NFE_CTE, 
+            0 as IND_OPER,                    
+            cast(replace(dw_icms_ipi_entradas.VL_BC_ICMS,",",".") as decimal(15,2)) as VL_BC_ICMS,                   
+            cast(replace(dw_icms_ipi_entradas.VL_ICMS,",",".") as decimal(15,2)) as VL_ICMS,               
+            dw_icms_ipi_entradas.VL_DOC,
+            dw_icms_ipi_entradas.COD_PART,
+            SUBSTRING_INDEX( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 2 ), 'STG&',- 1 ) AS RAZAO_PART,
+            SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 1 ) AS CNPJ_PART,
+            #SUBSTR(SUBSTRING_INDEX(D_PART_REG_0150,'STG&',-1),1,2)  AS UF_PART,
+        (
+            SELECT
+                UF.descricao
+            FROM
+                gerencial.uf_codigo_sigla AS UF
+            WHERE
+                UF.codigo = SUBSTR( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&',- 1 ), 1, 2 )
+        ) AS UF_PART,
+            dw_icms_ipi_entradas.NUM_DOC,
+            dw_icms_ipi_entradas.DT_DOC,
+            dw_icms_ipi_entradas.DT_E_S,
+            dw_icms_ipi_entradas.IND_EMIT,
+            dw_icms_ipi_entradas.COD_MOD,
+            dw_icms_ipi_entradas.COD_SIT,
+            dw_icms_ipi_entradas.SER,
+            dw_icms_ipi_entradas.COD_ITEM,
+            dw_icms_ipi_entradas.NUM_ITEM,
+            dw_icms_ipi_entradas.DESCR_COMPL,
+            SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 1 ) AS DESCR_0200,
+            IF
+        ( dw_icms_ipi_entradas.REGISTRO = 'C170',
+            SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&',- 1 ),
+            NULL ) AS COD_NCM_REG_0200,
+            IF
+        ( dw_icms_ipi_entradas.REGISTRO = 'C170',
+            SUBSTRING_INDEX( SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 2 ), 'STG&',- 1 ),
+            NULL ) AS TIPO_ITEM_REG_0200,
+            dw_icms_ipi_entradas.VL_ITEM,
+            dw_icms_ipi_entradas.CFOP,
+            (
+            SELECT
+                DESCRICAO
+            FROM
+                gerencial.tb_cfop
+            WHERE
+                tb_cfop.CFOP = dw_icms_ipi_entradas.CFOP
+            LIMIT 1 ) AS INF_CFOP,
+            dw_icms_ipi_entradas.VL_BC_ICMS_ITEM,
+            dw_icms_ipi_entradas.ALIQ_ICMS_ITEM,
+            dw_icms_ipi_entradas.VL_ICMS_ITEM,
+            dw_icms_ipi_entradas.CST_ICMS,
+            dw_icms_ipi_entradas.VL_BC_ICMS_ST,
+            dw_icms_ipi_entradas.ALIQ_ST,
+            dw_icms_ipi_entradas.VL_ICMS_ST,
+            dw_icms_ipi_entradas.VL_BC_IPI,
+            dw_icms_ipi_entradas.ALIQ_IPI,
+            dw_icms_ipi_entradas.VL_IPI,
+            dw_icms_ipi_entradas.CST_IPI,
+            dw_icms_ipi_entradas.CONCILIADO_PISCOFINS,
+            dw_icms_ipi_entradas.CONCILIADO_XML,
+            dw_icms_ipi_entradas.ID_SPEDFIS_CTRL_REG_0000
+        FROM
+            `DB_{base}`.dw_icms_ipi_entradas
+        WHERE
+            ID_ITEM IS NOT NULL 
+            {value['DATA_INI']}
+            {value['sql_cfop']}
+            {value['cfop_null']}
+            {value['geraCred']}
+         """
+
+    if filtro == 'saida':
+         sql = f"""
+        SELECT
+               dw_icms_ipi_saidas.ID_ITEM,
+               dw_icms_ipi_saidas.CHV_PK,
+               dw_icms_ipi_saidas.DATA_INI,              
+               dw_icms_ipi_saidas.CNPJ_FILIAL,
+               dw_icms_ipi_saidas.RAZAO_FILIAL,
+               dw_icms_ipi_saidas.UF_FILIAL,
+               dw_icms_ipi_saidas.REGISTRO,
+               (
+               CASE
+               WHEN dw_icms_ipi_saidas.REGISTRO = 'D190' THEN CONCAT('CTe',dw_icms_ipi_saidas.CHV_NFE_CTE)
+               WHEN dw_icms_ipi_saidas.REGISTRO = 'C170' THEN CONCAT('NFe',dw_icms_ipi_saidas.CHV_NFE_CTE)
+               WHEN dw_icms_ipi_saidas.REGISTRO = 'C190' THEN CONCAT('NFe',dw_icms_ipi_saidas.CHV_NFE_CTE)
+               ELSE dw_icms_ipi_saidas.CHV_NFE_CTE
+               END
+               ) as CHV_NFE_CTE,
+               1 as IND_OPER,              
+               cast(replace(dw_icms_ipi_saidas.VL_BC_ICMS,",",".") as decimal(15,2)) as VL_BC_ICMS,                   
+               cast(replace(dw_icms_ipi_saidas.VL_ICMS,",",".") as decimal(15,2)) as VL_ICMS,               
+               dw_icms_ipi_saidas.VL_DOC,
+               dw_icms_ipi_saidas.COD_PART,
+               SUBSTRING_INDEX( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 2 ), 'STG&',- 1 ) AS RAZAO_PART,
+               SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 1 ) AS CNPJ_PART,
+               #SUBSTR(SUBSTRING_INDEX(D_PART_REG_0150,'STG&',-1),1,2)  AS UF_PART,
+            (
+               SELECT
+                  UF.descricao
+               FROM
+                  gerencial.uf_codigo_sigla AS UF
+               WHERE
+                  UF.codigo = SUBSTR( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&',- 1 ), 1, 2 )
+            ) AS UF_PART,
+               dw_icms_ipi_saidas.NUM_DOC,
+               dw_icms_ipi_saidas.DT_DOC,
+               dw_icms_ipi_saidas.DT_E_S,
+               dw_icms_ipi_saidas.IND_EMIT,
+               dw_icms_ipi_saidas.COD_MOD,
+               dw_icms_ipi_saidas.COD_SIT,
+               dw_icms_ipi_saidas.SER,
+               dw_icms_ipi_saidas.COD_ITEM,
+               dw_icms_ipi_saidas.NUM_ITEM,
+               dw_icms_ipi_saidas.DESCR_COMPL,
+               SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 1 ) AS DESCR_0200,
+               IF
+            ( dw_icms_ipi_saidas.REGISTRO = 'C170',
+               SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&',- 1 ),
+               NULL ) AS COD_NCM_REG_0200,
+               IF
+            ( dw_icms_ipi_saidas.REGISTRO = 'C170',
+               SUBSTRING_INDEX( SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 2 ), 'STG&',- 1 ),
+               NULL ) AS TIPO_ITEM_REG_0200,
+               dw_icms_ipi_saidas.VL_ITEM,
+               dw_icms_ipi_saidas.CFOP,
+               (
+               SELECT
+                  DESCRICAO
+               FROM
+                  gerencial.tb_cfop
+               WHERE
+                  tb_cfop.CFOP = dw_icms_ipi_saidas.CFOP
+               LIMIT 1 ) AS INF_CFOP,
+               dw_icms_ipi_saidas.VL_BC_ICMS_ITEM,
+               dw_icms_ipi_saidas.ALIQ_ICMS_ITEM,
+               dw_icms_ipi_saidas.VL_ICMS_ITEM,
+               dw_icms_ipi_saidas.CST_ICMS,
+               dw_icms_ipi_saidas.VL_BC_ICMS_ST,
+               dw_icms_ipi_saidas.ALIQ_ST,
+               dw_icms_ipi_saidas.VL_ICMS_ST,
+               dw_icms_ipi_saidas.VL_BC_IPI,
+               dw_icms_ipi_saidas.ALIQ_IPI,
+               dw_icms_ipi_saidas.VL_IPI,
+               dw_icms_ipi_saidas.CST_IPI,
+               dw_icms_ipi_saidas.CONCILIADO_PISCOFINS,
+               dw_icms_ipi_saidas.CONCILIADO_XML,
+               dw_icms_ipi_saidas.ID_SPEDFIS_CTRL_REG_0000
+            FROM
+               `DB_{base}`.dw_icms_ipi_saidas
+            WHERE
+               ID_ITEM IS NOT NULL 
+               {value['DATA_INI']}
+               {value['sql_cfop']}
+               {value['cfop_null']}
+               {value['geraCred']}
+            """
+    elif filtro == 'ambos':
+        sql = f"""
+             SELECT                
+                   dw_icms_ipi_saidas.ID_ITEM,
+                   dw_icms_ipi_saidas.CHV_PK,
+                   dw_icms_ipi_saidas.DATA_INI,                
+                   dw_icms_ipi_saidas.CNPJ_FILIAL,
+                   dw_icms_ipi_saidas.RAZAO_FILIAL,
+                   dw_icms_ipi_saidas.UF_FILIAL,
+                   dw_icms_ipi_saidas.REGISTRO,                    
+              (
+               CASE
+               WHEN dw_icms_ipi_saidas.REGISTRO = 'D190' THEN CONCAT('CTe',dw_icms_ipi_saidas.CHV_NFE_CTE)
+               WHEN dw_icms_ipi_saidas.REGISTRO = 'C170' THEN CONCAT('NFe',dw_icms_ipi_saidas.CHV_NFE_CTE)
+               WHEN dw_icms_ipi_saidas.REGISTRO = 'C190' THEN CONCAT('NFe',dw_icms_ipi_saidas.CHV_NFE_CTE)
+               ELSE dw_icms_ipi_saidas.CHV_NFE_CTE
+               END
+               ) as CHV_NFE_CTE,
+               1 as IND_OPER,                      
+                   cast(replace(dw_icms_ipi_saidas.VL_BC_ICMS,",",".") as decimal(15,2)) as VL_BC_ICMS,                   
+                   cast(replace(dw_icms_ipi_saidas.VL_ICMS,",",".") as decimal(15,2)) as VL_ICMS,
+                   dw_icms_ipi_saidas.VL_DOC,
+                   dw_icms_ipi_saidas.COD_PART,
+                   SUBSTRING_INDEX( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 2 ), 'STG&',- 1 ) AS RAZAO_PART,
+                   SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 1 ) AS CNPJ_PART,
+                   #SUBSTR(SUBSTRING_INDEX(D_PART_REG_0150,'STG&',-1),1,2)  AS UF_PART,
+                (
+                   SELECT
+                      UF.descricao
+                   FROM
+                      gerencial.uf_codigo_sigla AS UF
+                   WHERE
+                      UF.codigo = SUBSTR( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&',- 1 ), 1, 2 )
+                ) AS UF_PART,
+                   dw_icms_ipi_saidas.NUM_DOC,
+                   dw_icms_ipi_saidas.DT_DOC,
+                   dw_icms_ipi_saidas.DT_E_S,
+                   dw_icms_ipi_saidas.IND_EMIT,
+                   dw_icms_ipi_saidas.COD_MOD,
+                   dw_icms_ipi_saidas.COD_SIT,
+                   dw_icms_ipi_saidas.SER,
+                   dw_icms_ipi_saidas.COD_ITEM,
+                   dw_icms_ipi_saidas.NUM_ITEM,
+                   dw_icms_ipi_saidas.DESCR_COMPL,
+                   SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 1 ) AS DESCR_0200,
+                   IF
+                ( dw_icms_ipi_saidas.REGISTRO = 'C170',
+                   SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&',- 1 ),
+                   NULL ) AS COD_NCM_REG_0200,
+                   IF
+                ( dw_icms_ipi_saidas.REGISTRO = 'C170',
+                   SUBSTRING_INDEX( SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 2 ), 'STG&',- 1 ),
+                   NULL ) AS TIPO_ITEM_REG_0200,
+                   dw_icms_ipi_saidas.VL_ITEM,
+                   dw_icms_ipi_saidas.CFOP,
+                   (
+                   SELECT
+                      DESCRICAO
+                   FROM
+                      gerencial.tb_cfop
+                   WHERE
+                      tb_cfop.CFOP = dw_icms_ipi_saidas.CFOP
+                   LIMIT 1 ) AS INF_CFOP,
+                   dw_icms_ipi_saidas.VL_BC_ICMS_ITEM,
+                   dw_icms_ipi_saidas.ALIQ_ICMS_ITEM,
+                   dw_icms_ipi_saidas.VL_ICMS_ITEM,
+                   dw_icms_ipi_saidas.CST_ICMS,
+                   dw_icms_ipi_saidas.VL_BC_ICMS_ST,
+                   dw_icms_ipi_saidas.ALIQ_ST,
+                   dw_icms_ipi_saidas.VL_ICMS_ST,
+                   dw_icms_ipi_saidas.VL_BC_IPI,
+                   dw_icms_ipi_saidas.ALIQ_IPI,
+                   dw_icms_ipi_saidas.VL_IPI,
+                   dw_icms_ipi_saidas.CST_IPI,
+                   dw_icms_ipi_saidas.CONCILIADO_PISCOFINS,
+                   dw_icms_ipi_saidas.CONCILIADO_XML,
+                   dw_icms_ipi_saidas.ID_SPEDFIS_CTRL_REG_0000
+                FROM
+                   `DB_{base}`.dw_icms_ipi_saidas
+                WHERE
+                   ID_ITEM IS NOT NULL
+                   {value['DATA_INI']} 
+                   {value['sql_cfop']}
+                   {value['cfop_null']}
+                   {value['geraCred']}
+                UNION
+                SELECT
+                   dw_icms_ipi_entradas.ID_ITEM,
+                   dw_icms_ipi_entradas.CHV_PK,
+                   dw_icms_ipi_entradas.DATA_INI,                
+                   dw_icms_ipi_entradas.CNPJ_FILIAL,
+                   dw_icms_ipi_entradas.RAZAO_FILIAL,
+                   dw_icms_ipi_entradas.UF_FILIAL,
+                   dw_icms_ipi_entradas.REGISTRO,
+            (
+                  CASE
+                     WHEN dw_icms_ipi_entradas.REGISTRO = 'D190' THEN CONCAT('CTe',dw_icms_ipi_entradas.CHV_NFE_CTE)
+                     WHEN dw_icms_ipi_entradas.REGISTRO = 'C170' THEN CONCAT('NFe',dw_icms_ipi_entradas.CHV_NFE_CTE)
+                     WHEN dw_icms_ipi_entradas.REGISTRO = 'C190' THEN CONCAT('NFe',dw_icms_ipi_entradas.CHV_NFE_CTE)
+                  ELSE dw_icms_ipi_entradas.CHV_NFE_CTE
+                  END
+                  ) as CHV_NFE_CTE,
+                  0 as IND_OPER,
+                   cast(replace(dw_icms_ipi_entradas.VL_BC_ICMS,",",".") as decimal(15,2)) as VL_BC_ICMS,                   
+                   cast(replace(dw_icms_ipi_entradas.VL_ICMS,",",".") as decimal(15,2)) as VL_ICMS,
+                   dw_icms_ipi_entradas.VL_DOC,
+                   dw_icms_ipi_entradas.COD_PART,
+                   SUBSTRING_INDEX( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 2 ), 'STG&',- 1 ) AS RAZAO_PART,
+                   SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 1 ) AS CNPJ_PART,
+                   #SUBSTR(SUBSTRING_INDEX(D_PART_REG_0150,'STG&',-1),1,2)  AS UF_PART,
+                (
+                   SELECT
+                      UF.descricao
+                   FROM
+                      gerencial.uf_codigo_sigla AS UF
+                   WHERE
+                      UF.codigo = SUBSTR( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&',- 1 ), 1, 2 )
+                ) AS UF_PART,
+                   dw_icms_ipi_entradas.NUM_DOC,
+                   dw_icms_ipi_entradas.DT_DOC,
+                   dw_icms_ipi_entradas.DT_E_S,
+                   dw_icms_ipi_entradas.IND_EMIT,
+                   dw_icms_ipi_entradas.COD_MOD,
+                   dw_icms_ipi_entradas.COD_SIT,
+                   dw_icms_ipi_entradas.SER,
+                   dw_icms_ipi_entradas.COD_ITEM,
+                   dw_icms_ipi_entradas.NUM_ITEM,
+                   dw_icms_ipi_entradas.DESCR_COMPL,
+                   SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 1 ) AS DESCR_0200,
+                   IF
+                ( dw_icms_ipi_entradas.REGISTRO = 'C170',
+                   SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&',- 1 ),
+                   NULL ) AS COD_NCM_REG_0200,
+                   IF
+                ( dw_icms_ipi_entradas.REGISTRO = 'C170',
+                   SUBSTRING_INDEX( SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 2 ), 'STG&',- 1 ),
+                   NULL ) AS TIPO_ITEM_REG_0200,
+                   dw_icms_ipi_entradas.VL_ITEM,
+                   dw_icms_ipi_entradas.CFOP,
+                   (
+                   SELECT
+                      DESCRICAO
+                   FROM
+                      gerencial.tb_cfop
+                   WHERE
+                      tb_cfop.CFOP = dw_icms_ipi_entradas.CFOP
+                   LIMIT 1 ) AS INF_CFOP,
+                   dw_icms_ipi_entradas.VL_BC_ICMS_ITEM,
+                   dw_icms_ipi_entradas.ALIQ_ICMS_ITEM,
+                   dw_icms_ipi_entradas.VL_ICMS_ITEM,
+                   dw_icms_ipi_entradas.CST_ICMS,
+                   dw_icms_ipi_entradas.VL_BC_ICMS_ST,
+                   dw_icms_ipi_entradas.ALIQ_ST,
+                   dw_icms_ipi_entradas.VL_ICMS_ST,
+                   dw_icms_ipi_entradas.VL_BC_IPI,
+                   dw_icms_ipi_entradas.ALIQ_IPI,
+                   dw_icms_ipi_entradas.VL_IPI,
+                   dw_icms_ipi_entradas.CST_IPI,
+                   dw_icms_ipi_entradas.CONCILIADO_PISCOFINS,
+                   dw_icms_ipi_entradas.CONCILIADO_XML,
+                   dw_icms_ipi_entradas.ID_SPEDFIS_CTRL_REG_0000                   
+                FROM
+                   `DB_{base}`.dw_icms_ipi_entradas
+                WHERE
+                   ID_ITEM IS NOT NULL
+                   {value['DATA_INI']} 
+                   {value['sql_cfop']}
+                   {value['cfop_null']}
+                   {value['geraCred']}
+                """
+
+    try:
+        with engine.connect() as conn:
+            df1 = pd.read_sql_query(sql, conn)
+    except Exception as e:
+        raise e
+        
+    df1.fillna(0, inplace=True)
+
+    arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
+
+    if len(rs.get('data_ini')) > 0:
+        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.xlsx'
+
+    urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
+
+    if len(df1) > 1000000:
+        msg_ = {
+            'message': 'Hello world',
+            'id_user' : rs.get('userId'),
+            'msg': f'[{rs.get("page")}] - Total de Registros: {len(df1)}, precisa diminuir mais para gerar o excel'
+        }
+        raise msg_ 
+    elif len(df1) > 795000:
+        file_cache = os.path.join(BASE_DIR, f"media/cache_{dataagora}.pickle")      
+        df1.to_pickle(f"{file_cache}")
+        del df1
+
+        df2 = pd.read_pickle(f"{file_cache}")
+
+        if os.path.exists(file_cache):
+            os.remove(file_cache)
+
+        df2['DATA_INI'] = converte_data(df2,'DATA_INI').dt.strftime('%d/%m/%Y')
+        df2['CHV_NFE_CTE'] =  df2['CHV_NFE_CTE'].astype("string")
+        df2['DT_DOC'] = df2['DT_DOC'].astype("string")
+
+        x = df2['CNPJ_FILIAL'].unique()
+
+        writer = pd.ExcelWriter(urlxls, engine='xlsxwriter')
+        
+        if eval(rs.get('sheet')):
+            for i in x:
+                sh = df2[df2['CNPJ_FILIAL'] == i]
+                sh.to_excel(writer, sheet_name=i, index=False)
+        else:
+            df2.to_excel(writer, sheet_name='sheet', index=False)
+        
+        del df2,x
+        writer.save()
+    else:
+        df1['DATA_INI'] = converte_data(df1,'DATA_INI').dt.strftime('%d/%m/%Y')
+        erro = False
+
+        x = df1['CNPJ_FILIAL'].unique()
+    
+        urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}")
+
+        notify(f'Criando o arquivo: {arq_excel}', ws, rs)  
+
+        try:
+            wb = Workbook()
+            if json.loads(str(rs.get('sheet')).lower()):           
+                for i in x:
+                    sh = df1[df1['COD_CTA'] == i]
+                    values = [sh.columns] + list(sh.values)
+                    wb.new_sheet(i, data=[sh.columns] + list(sh.values))              
+            else:     
+                values = [df1.columns] + list(df1.values)
+                wb.new_sheet('sheet name', data=values)
+            wb.save(urlxls)
+        except Exception as e:
+            raise e 
+
+        notify('Arquivo criado com Sucesso', ws, rs)
+
+        rs['nome_arquivo'] = arq_excel   
+        rs['total_registros'] = len(df1)
+        notify('Retornando a MSG', ws, rs)
+
+        ren(rs,'id_user', 'userId') 
+        ren(rs,'cnpj_conta', 'base') 
+        ren(rs,'cliente', 'nomeEmpresa') 
+        ren(rs,'tipo_relatorio', 'page')         
+        ren(rs,'user_name', 'username')
+        ren(rs,'dados_cfop', 'cfop')
+
+        rs.pop('idEmpresa') 
+        rs.pop('tamanho') 
 
         try:
             gravabanco_ctrl_arq_excel(rs)
