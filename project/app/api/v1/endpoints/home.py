@@ -657,7 +657,6 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
             "rst": "2"
         }     
 
-
 # POST Relatorio excel_b_total_icms_ipi
 @router.post('/excel_b_total_icms_ipi/')
 @run_only_one_instance("name_"+"xlsx_b_total_icms_ipi")
