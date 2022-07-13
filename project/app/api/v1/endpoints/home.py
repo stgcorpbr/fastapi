@@ -745,6 +745,7 @@ async def apuracao_icms_ipi(info : Request, current_user:  usuario_schema.AuthUs
                     sped_icms_ipi_ctrl.CANCELADO IS NULL
                     {value['sql_data']}
             """
+            
 
         result = await session.execute(sa.text(sql))
         qtd = max(result.fetchall())[0]
