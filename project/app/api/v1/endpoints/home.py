@@ -836,7 +836,7 @@ async def b_total_icms_ipi(info : Request, current_user:  usuario_schema.AuthUse
         }
 
         if len(dados.get('data_ini')) > 0 and len(dados.get('data_fim')) > 0:
-            value['sql_data'] = f""" 
+            value['DATA_INI'] = f""" 
                 AND DATA_INI 
                 BETWEEN '{ convertData(dados.get('data_ini'))}' AND '{ convertData(dados.get('data_fim'))}' 
             """
