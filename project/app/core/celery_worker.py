@@ -1892,18 +1892,18 @@ def b_total_icms_ipi_task(rs):
         "msg": f"https://stgapi.cf:9993/{arq_excel}",        
     }
 
-    print('msg1')
+    # print('msg1')
 
-    msg = f"""{str(msg_).replace("'",'"')}"""    
-    try:
-        print('msg_ok', msg)
-        WS.send(msg)
-    except:
-        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
-        WS.send(msg)
-        print('msg_erro', msg)
+    # msg = f"""{str(msg_).replace("'",'"')}"""    
+    # try:
+    #     print('msg_ok', msg)
+    #     WS.send(msg)
+    # except:
+    #     WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+    #     WS.send(msg)
+    #     print('msg_erro', msg)
 
-    print('msg2')  
+    # print('msg2')  
 
     ren(rs,'id_user', 'userId') 
     ren(rs,'cnpj_conta', 'base') 
