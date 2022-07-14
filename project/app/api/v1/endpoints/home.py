@@ -647,6 +647,7 @@ async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTask
 
         msg = f"""{str(task.get()).replace("'",'"')}"""
         try:
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
             WS.send(msg)
         except:
             WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
