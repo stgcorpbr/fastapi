@@ -1373,7 +1373,6 @@ url_ws = "wss://stgapi.cf:7000/ws/"
 def clear_all_locks(**kwargs):
     clear_locks(celery_)
 
-
 @celery_.task(base=Singleton)
 def b_total_icms_ipi_task(rs):
     global WS, url_ws
