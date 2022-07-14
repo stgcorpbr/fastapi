@@ -641,8 +641,7 @@ async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTask
     dados = dict(dados)
     base = dados.get('base')
     WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
-    try:
-        WS.send('olha eu sendo criado')
+    try:        
         task = b_total_icms_ipi_task.delay(dados)        
 
         # msg = f"""{str(task.get()).replace("'",'"')}"""
@@ -673,7 +672,7 @@ async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTask
             "msg":  str(task.get())
         }     
     except Exception as e:
-        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        WSs = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         await send_email_async("Erro no Sistema", dados.get('email'), {
             "title": f"Ocorreu um erro: { e.args[0] }",
             "page": dados.get('page'),
@@ -696,10 +695,10 @@ async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTask
 
         msg = f"""{str(x).replace("'",'"')}"""
         try:
-            WS.send(msg)
+            WSs.send(msg)
         except:
-            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
-            WS.send(msg)
+            WSs = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WSs.send(msg)
 
         return {
             "erro": "sim", 
