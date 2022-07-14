@@ -1905,6 +1905,11 @@ def b_total_icms_ipi_task(rs):
         "erro" : 0,
         "link" : 1,
         "msg": f"https://stgapi.cf:9993/{arq_excel}",        
-    }
+    }    
+
+    msg = f"""{str(msg_).replace("'",'"')}"""
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
 
     return msg_
