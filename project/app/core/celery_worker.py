@@ -6,7 +6,7 @@ import random
 from pathlib import Path
 from datetime import datetime
 from celery.signals import celeryd_init
-from celery_singleton import Singleton
+from celery_singleton import Singleton, DuplicateTaskError
 from celery_singleton.singleton import clear_locks
 from celery import Celery, shared_task
 from celery.utils.log import get_task_logger
