@@ -5,7 +5,9 @@ import random
 
 from pathlib import Path
 from datetime import datetime
-
+from celery.signals import celeryd_init
+from celery_singleton import Singleton
+from celery_singleton.singleton import clear_locks
 from celery import Celery, shared_task
 from celery.utils.log import get_task_logger
 # from celery.schedules  import crontab
@@ -1367,7 +1369,12 @@ def balancete_contabil_task(rs):
 WS = ""
 url_ws = "wss://stgapi.cf:7000/ws/"
 
-@shared_task
+@celeryd_init.connect()
+def clear_all_locks(**kwargs):
+    clear_locks(celery_)
+
+
+@celery_.task(bind=True, name='lazy_return', base=Singleton)
 def b_total_icms_ipi_task(rs):
     global WS, url_ws
     # raise Exception('Erro No Sistemas')

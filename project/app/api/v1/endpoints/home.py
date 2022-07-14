@@ -5,27 +5,22 @@ import os, re
 import random
 import pandas as pd
 import sqlalchemy as sa
-
 from typing import List
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from core import deps
 from models import home_model, user_model, relatorio_model
 from core.auth import autenticar, criar_token_acesso
 from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, apuracao_icms_ipi_task, b_total_icms_ipi_task, balancete_contabil_task, excel_checklist_icms_ipi_faltantes_task, notify
 from websocket import create_connection
-
 from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schema
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
-from fastapi import Request, APIRouter, WebSocket, status, Depends, HTTPException
+from fastapi import Request, APIRouter, status, Depends, HTTPException
 from fastapi_redis_cache import cache
 from fastapi_redis_cache import cache_one_minute
-from fastapi.responses import FileResponse
 from core.send_email import return_email_async, send_email_background, send_email_async
 from fastapi import BackgroundTasks
-import requests
 from logging import error
 from redis import Redis
 import socketio
@@ -33,26 +28,6 @@ from functools import wraps
 
 WS = ""
 url_ws = "wss://stgapi.cf:7000/ws/"
-
-def run_only_one_instance(redis_addr: str = "redis"):
-    def real_decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                sentinel = Redis(host=redis_addr).incr(func.__module__+func.__name__ + str(args) + str(kwargs))
-                if sentinel == 1:
-                    return func(*args, **kwargs)
-                else:
-                    pass
-                Redis(host=redis_addr).decr(func.__module__+func.__name__ + str(args) + str(kwargs))
-            except Exception as e:
-                Redis(host=redis_addr).decr(func.__module__+func.__name__ + str(args) + str(kwargs))
-                error(e)
-
-        return wrapper
-
-    return real_decorator
-
 
 sio = socketio.Client()
 
@@ -659,7 +634,6 @@ async def ajuste_apuracao_icms(info : Request, background_tasks: BackgroundTasks
 
 # POST Relatorio excel_b_total_icms_ipi
 @router.post('/excel_b_total_icms_ipi/')
-@run_only_one_instance("name_"+"xlsx_b_total_icms_ipi")
 async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):
     global url_ws, WS    
     dados = await info.json()
