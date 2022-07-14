@@ -1374,7 +1374,7 @@ def clear_all_locks(**kwargs):
     clear_locks(celery_)
 
 
-@celery_.task(bind=True, name='lazy_return', base=Singleton)
+@celery_.task(base=Singleton)
 def b_total_icms_ipi_task(rs):
     global WS, url_ws
     # raise Exception('Erro No Sistemas')
