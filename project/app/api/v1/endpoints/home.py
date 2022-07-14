@@ -642,7 +642,7 @@ async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTask
     base = dados.get('base')
     WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     try:
-        
+        WS.send('olha eu sendo criado')
         task = b_total_icms_ipi_task.delay(dados)        
 
         msg = f"""{str(task.get()).replace("'",'"')}"""
