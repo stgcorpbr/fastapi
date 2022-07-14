@@ -1890,7 +1890,16 @@ def b_total_icms_ipi_task(rs):
         "erro" : 0,
         "link" : 1,
         "msg": f"https://stgapi.cf:9993/{arq_excel}",        
-    }  
+    }
+
+    print('msg1')
+
+    msg = f"""{str(msg_).replace("'",'"')}"""
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
+
+    print('msg2')  
 
     ren(rs,'id_user', 'userId') 
     ren(rs,'cnpj_conta', 'base') 
@@ -1907,13 +1916,4 @@ def b_total_icms_ipi_task(rs):
     except Exception as e:
         raise e 
     
-    print('msg1')
-
-    msg = f"""{str(msg_).replace("'",'"')}"""
-    if notify(f'{msg}', WS, rs) == False: 
-        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
-        notify(f'{msg}', WS, rs)
-
-    print('msg2')
-
     return msg_
