@@ -1894,10 +1894,12 @@ def b_total_icms_ipi_task(rs):
 
     print('msg1')
 
-    msg = f"""{str(msg_).replace("'",'"')}"""
-    if notify(f'{msg}', WS, rs) == False: 
+    msg = f"""{str(msg_).replace("'",'"')}"""    
+    try:
+        WS.send(msg)
+    except:
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
-        notify(f'{msg}', WS, rs)
+        WS.send(msg)
 
     print('msg2')  
 
