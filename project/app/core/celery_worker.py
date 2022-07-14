@@ -1883,6 +1883,15 @@ def b_total_icms_ipi_task(rs):
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
 
+    msg_ = {
+        "data": "Criado com Sucesso",
+        "userId" : f"{rs['userId']}",
+        "page": f"{rs['page']}",
+        "erro" : 0,
+        "link" : 1,
+        "msg": f"https://stgapi.cf:9993/{arq_excel}",        
+    }  
+
     ren(rs,'id_user', 'userId') 
     ren(rs,'cnpj_conta', 'base') 
     ren(rs,'cliente', 'nomeEmpresa') 
@@ -1897,16 +1906,7 @@ def b_total_icms_ipi_task(rs):
         gravabanco_ctrl_arq_excel(rs)
     except Exception as e:
         raise e 
-                    
-    msg_ = {
-        "data": "Criado com Sucesso",
-        "userId" : f"{rs['userId']}",
-        "page": f"{rs['page']}",
-        "erro" : 0,
-        "link" : 1,
-        "msg": f"https://stgapi.cf:9993/{arq_excel}",        
-    }    
-
+    
     print('msg1')
 
     msg = f"""{str(msg_).replace("'",'"')}"""
