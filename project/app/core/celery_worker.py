@@ -63,6 +63,21 @@ def notify(msg, ws, rs):
     except:
         return False
 
+def notify_file(ws, rs, arq_excel):    
+    x = {
+        "data": "Criado com Sucesso",
+        "userId": f"{rs['userId']}",
+        "page": f"{rs['page']}",
+        "erro" : 0,
+        "link" : 1,
+        "msg": f"https://stgapi.cf:9993/{arq_excel}"
+        }
+    try: 
+        ws.send(str(x).replace("'",'"'))
+        return True
+    except:
+        return False
+
 
 @celery_.on_after_configure.connect
 def schedule_periodic_tasks(sender, **kwargs):
@@ -1891,6 +1906,10 @@ def b_total_icms_ipi_task(rs):
         "link" : 1,
         "msg": f"https://stgapi.cf:9993/{arq_excel}",        
     }
+
+    if notify_file(WS, rs, arq_excel) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify_file(WS, rs, arq_excel)
 
     # print('msg1')
 
