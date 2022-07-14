@@ -1900,8 +1900,8 @@ def b_total_icms_ipi_task(rs):
                     
     msg_ = {
         "data": "Criado com Sucesso",
-        "userId" : f"{rs['id_user']}",
-        "page": f"{rs['tipo_relatorio']}",
+        "userId" : f"{rs['userId']}",
+        "page": f"{rs['page']}",
         "erro" : 0,
         "link" : 1,
         "msg": f"https://stgapi.cf:9993/{arq_excel}",        
