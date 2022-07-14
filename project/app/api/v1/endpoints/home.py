@@ -919,6 +919,11 @@ async def b_total_icms_ipi(info : Request, current_user:  usuario_schema.AuthUse
             """
 
         result = await session.execute(sa.text(sql))
+        if len(result.fetchall()) == 0: return { 
+            "erro": True,
+            "data": "Sem dados",
+            "rst": str(len(result.fetchall()))            
+        }
         rst2 = pd.DataFrame(data=result.fetchall())
         rst2['CFOP'].fillna('9999', inplace=True)
 
