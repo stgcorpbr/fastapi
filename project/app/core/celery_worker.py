@@ -63,7 +63,9 @@ def notify(msg, ws, rs):
     except:
         return False
 
-def notify_file(ws, rs, arq_excel):    
+def notify_file(ws, rs, arq_excel): 
+    global url_ws
+    ws = create_connection(f"{url_ws}{random.randint(10000, 99999)}")   
     x = {
         "data": "Criado com Sucesso",
         "userId": f"{rs['userId']}",
@@ -1907,9 +1909,8 @@ def b_total_icms_ipi_task(rs):
         "msg": f"https://stgapi.cf:9993/{arq_excel}",        
     }
 
-    if notify_file(WS, rs, arq_excel) == False: 
-        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
-        notify_file(WS, rs, arq_excel)
+    notify_file(rs, arq_excel)
+        
 
     # print('msg1')
 
