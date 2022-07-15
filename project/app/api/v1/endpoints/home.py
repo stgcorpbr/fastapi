@@ -726,6 +726,7 @@ async def xlsx_b_total_pis_cofins(info : Request, background_tasks: BackgroundTa
             "nomeEmpresa" : dados.get('nomeEmpresa'),
             "arquivo" : task.get()['msg']
         })
+        
 
         clear_all_locks()
 
