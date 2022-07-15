@@ -1913,3 +1913,656 @@ def b_total_icms_ipi_task(rs):
         raise e 
     
     return msg_
+
+@celery_.task(base=Singleton)
+def b_total_pis_cofins_task(rs):
+    global WS, url_ws   
+    
+    try:
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+    except Exception as e:
+        raise e 
+    
+    dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
+    value = {        
+        'sql_cfop' : '',
+        'cfop_null' : '',
+        'DATA_INI' : '',
+        'geraCred' : ''
+    }
+
+    base = rs.get('base')
+    page = rs.get('page')
+    filtro = rs.get('filtro')
+
+    if len(rs.get('cfop')) > 0:
+
+         if '9999' in rs.get('cfop'):
+            value['cfop_null'] = f" OR `CFOP` IS NULL"
+
+         quebra_cfop = rs.get('cfop').split(',')
+
+         if str(rs.get('geraCred')) == True:
+            value['geraCred'] = f" AND (dw_pis_cofins_entradas.CFOP IN (SELECT cfop_credito.cfop FROM gerencial.cfop_credito) OR CFOP IS NULL)"
+
+         if len(quebra_cfop) > 1:
+               value['sql_cfop'] = f" AND `CFOP` IN {str(tuple([ str(x).strip() for x in quebra_cfop]))}"
+         else:
+               value['sql_cfop'] = f" AND `CFOP` = '{str(rs.get('cfop'))}'"
+
+         if len(rs.get('data_ini')) > 0 and len(rs.get('data_fim')) > 0:
+            value['DATA_INI'] = f""" 
+                AND	(DATA_INI BETWEEN '{ convertData(rs.get('data_ini'))}' AND '{ convertData(rs.get('data_fim'))}')
+            """      
+    
+    msg = f'Conectando com a Base: DB_{base}'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
+
+    try:
+        engine = create_engine(f"{URL_CONNECT}/DB_{base}")
+    except Exception as e:
+        raise e    
+
+    msg = f'Base conectada'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
+    
+    sql = f"""        
+         SELECT
+               dw_pis_cofins_entradas.ID_ITEM,
+               dw_pis_cofins_entradas.PK,
+               dw_pis_cofins_entradas.DATA_INI,               
+               dw_pis_cofins_entradas.CNPJ_FILIAL,
+               dw_pis_cofins_entradas.REGISTRO,
+               dw_pis_cofins_entradas.IND_ESCRI,
+               dw_pis_cofins_entradas.IND_OPER,
+               dw_pis_cofins_entradas.IND_EMIT,
+               dw_pis_cofins_entradas.COD_PART,
+               SUBSTRING_INDEX( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 2 ), 'STG&',- 1 ) AS RAZAO_PART,
+               SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 1 ) AS CNPJ_PART,
+               (
+               SELECT UF.descricao FROM	gerencial.uf_codigo_sigla AS UF WHERE	UF.codigo = SUBSTR( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&',- 1 ), 1, 2 ) 
+               ) AS UF_PART,
+               dw_pis_cofins_entradas.D_PART_REG_0150,
+               dw_pis_cofins_entradas.COD_MOD,
+               dw_pis_cofins_entradas.COD_SIT,
+               dw_pis_cofins_entradas.SER,
+               dw_pis_cofins_entradas.NUM_DOC,
+               (
+             CASE
+               WHEN dw_pis_cofins_entradas.REGISTRO = 'D100' THEN CONCAT('CTe',dw_pis_cofins_entradas.CHV_NFE)
+               WHEN dw_pis_cofins_entradas.REGISTRO = 'C100' THEN CONCAT('NFe',dw_pis_cofins_entradas.CHV_NFE)
+               WHEN dw_pis_cofins_entradas.REGISTRO = 'C190' THEN CONCAT('NFe',dw_pis_cofins_entradas.CHV_NFE)
+               ELSE dw_pis_cofins_entradas.CHV_NFE
+               END
+               ) as CHV_NFE,
+               dw_pis_cofins_entradas.DT_DOC,
+               dw_pis_cofins_entradas.DT_E_S,
+               dw_pis_cofins_entradas.VL_DOC,
+               dw_pis_cofins_entradas.IND_PGTO,
+               dw_pis_cofins_entradas.VL_DESC,
+               dw_pis_cofins_entradas.VL_ABAT_NT,
+               dw_pis_cofins_entradas.VL_MERC,
+               dw_pis_cofins_entradas.IND_FRT,
+               dw_pis_cofins_entradas.VL_FRT,
+               dw_pis_cofins_entradas.VL_SEG,
+               dw_pis_cofins_entradas.VL_OUT_DA,
+               cast(
+               REPLACE ( dw_pis_cofins_entradas.VL_BC_ICMS, ",", "." ) AS DECIMAL ( 15, 2 )) AS VL_BC_ICMS,
+               cast(
+               REPLACE ( dw_pis_cofins_entradas.VL_ICMS, ",", "." ) AS DECIMAL ( 15, 2 )) AS VL_ICMS,
+               dw_pis_cofins_entradas.VL_BC_ICMS_ST,
+               dw_pis_cofins_entradas.VL_ICMS_ST,
+               dw_pis_cofins_entradas.VL_IPI,
+               dw_pis_cofins_entradas.VL_PIS,
+               dw_pis_cofins_entradas.VL_COFINS,
+               dw_pis_cofins_entradas.VL_PIS_ST,
+               dw_pis_cofins_entradas.VL_COFINS_ST,
+               dw_pis_cofins_entradas.NUM_ITEM,
+               dw_pis_cofins_entradas.COD_ITEM,
+               dw_pis_cofins_entradas.DESCR_COMPL,
+               SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 1 ) AS DESCR_0200,
+            IF
+               ( dw_pis_cofins_entradas.REGISTRO = 'C170', SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&',- 1 ), NULL ) AS COD_NCM_REG_0200,
+            IF
+               ( dw_pis_cofins_entradas.REGISTRO = 'C170', SUBSTRING_INDEX( SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 2 ), 'STG&',- 1 ), NULL ) AS TIPO_ITEM_REG_0200,
+               dw_pis_cofins_entradas.D_ITEM_REG_0200,              
+               dw_pis_cofins_entradas.QTD,
+               dw_pis_cofins_entradas.UNID,
+               dw_pis_cofins_entradas.VL_ITEM,
+               dw_pis_cofins_entradas.VL_DESC_ITEM,
+               dw_pis_cofins_entradas.IND_MOV,
+               dw_pis_cofins_entradas.CST_ICMS,
+               dw_pis_cofins_entradas.CFOP,                
+                (
+               SELECT
+                  DESCRICAO
+               FROM
+                  gerencial.tb_cfop
+               WHERE
+                  tb_cfop.CFOP = dw_pis_cofins_entradas.CFOP
+               LIMIT 1 ) AS INF_CFOP,
+               dw_pis_cofins_entradas.COD_NAT,
+               dw_pis_cofins_entradas.VL_BC_ICMS_ITEM,
+               dw_pis_cofins_entradas.ALIQ_ICMS,
+               dw_pis_cofins_entradas.VL_ICMS_ITEM,
+               dw_pis_cofins_entradas.VL_BC_ICMS_ST_ITEM,
+               dw_pis_cofins_entradas.ALIQ_ST,
+               dw_pis_cofins_entradas.VL_ICMS_ST_ITEM,
+               dw_pis_cofins_entradas.IND_APUR,
+               dw_pis_cofins_entradas.CST_IPI,
+               dw_pis_cofins_entradas.COD_ENQ,
+               dw_pis_cofins_entradas.VL_BC_IPI,
+               dw_pis_cofins_entradas.ALIQ_IPI,
+               dw_pis_cofins_entradas.VL_IPI_ITEM,
+               dw_pis_cofins_entradas.CST_PIS,
+               dw_pis_cofins_entradas.VL_BC_PIS,
+               dw_pis_cofins_entradas.ALIQ_PIS,
+               dw_pis_cofins_entradas.QUANT_BC_PIS,
+               dw_pis_cofins_entradas.ALIQ_PIS_QUANT,
+               dw_pis_cofins_entradas.VL_PIS_ITEM,
+               dw_pis_cofins_entradas.CST_COFINS,
+               dw_pis_cofins_entradas.VL_BC_COFINS,
+               dw_pis_cofins_entradas.ALIQ_COFINS,
+               dw_pis_cofins_entradas.QUANT_BC_COFINS,
+               dw_pis_cofins_entradas.ALIQ_COFINS_QUANT,
+               dw_pis_cofins_entradas.VL_COFINS_ITEM,
+               dw_pis_cofins_entradas.COD_CTA,
+               dw_pis_cofins_entradas.CONCILIADO_PISCOFINS,
+               dw_pis_cofins_entradas.ID_EFD_CTRL_REG_0000 
+            FROM
+               `DB_{base}`.dw_pis_cofins_entradas
+            WHERE
+               ID_ITEM IS NOT NULL 
+               {value['DATA_INI']}
+               {value['sql_cfop']}
+               {value['cfop_null']}
+               {value['geraCred']}
+         """
+
+    if filtro == 'saida':
+         sql = f"""
+        SELECT
+               dw_pis_cofins_saidas.ID_ITEM,
+               dw_pis_cofins_saidas.PK,
+               dw_pis_cofins_saidas.DATA_INI,               
+               dw_pis_cofins_saidas.CNPJ_FILIAL,
+               dw_pis_cofins_saidas.REGISTRO,
+               dw_pis_cofins_saidas.IND_ESCRI,
+               dw_pis_cofins_saidas.IND_OPER,
+               dw_pis_cofins_saidas.IND_EMIT,
+               dw_pis_cofins_saidas.COD_PART,
+               SUBSTRING_INDEX( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 2 ), 'STG&',- 1 ) AS RAZAO_PART,
+               SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 1 ) AS CNPJ_PART,
+               (
+               SELECT UF.descricao FROM	gerencial.uf_codigo_sigla AS UF WHERE	UF.codigo = SUBSTR( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&',- 1 ), 1, 2 ) 
+               ) AS UF_PART,
+               dw_pis_cofins_saidas.D_PART_REG_0150,
+               dw_pis_cofins_saidas.COD_MOD,
+               dw_pis_cofins_saidas.COD_SIT,
+               dw_pis_cofins_saidas.SER,
+               dw_pis_cofins_saidas.NUM_DOC,
+               dw_pis_cofins_saidas.CHV_NFE,
+               dw_pis_cofins_saidas.DT_DOC,
+               dw_pis_cofins_saidas.DT_E_S,
+               dw_pis_cofins_saidas.VL_DOC,
+               dw_pis_cofins_saidas.IND_PGTO,
+               dw_pis_cofins_saidas.VL_DESC,
+               dw_pis_cofins_saidas.VL_ABAT_NT,
+               dw_pis_cofins_saidas.VL_MERC,
+               dw_pis_cofins_saidas.IND_FRT,
+               dw_pis_cofins_saidas.VL_FRT,
+               dw_pis_cofins_saidas.VL_SEG,
+               dw_pis_cofins_saidas.VL_OUT_DA,
+               cast(
+               REPLACE ( dw_pis_cofins_saidas.VL_BC_ICMS, ",", "." ) AS DECIMAL ( 15, 2 )) AS VL_BC_ICMS,
+               cast(
+               REPLACE ( dw_pis_cofins_saidas.VL_ICMS, ",", "." ) AS DECIMAL ( 15, 2 )) AS VL_ICMS,
+               dw_pis_cofins_saidas.VL_BC_ICMS_ST,
+               dw_pis_cofins_saidas.VL_ICMS_ST,
+               dw_pis_cofins_saidas.VL_IPI,
+               dw_pis_cofins_saidas.VL_PIS,
+               dw_pis_cofins_saidas.VL_COFINS,
+               dw_pis_cofins_saidas.VL_PIS_ST,
+               dw_pis_cofins_saidas.VL_COFINS_ST,
+               dw_pis_cofins_saidas.NUM_ITEM,
+               dw_pis_cofins_saidas.COD_ITEM,
+               dw_pis_cofins_saidas.DESCR_COMPL,
+               SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 1 ) AS DESCR_0200,
+            IF
+               ( dw_pis_cofins_saidas.REGISTRO = 'C170', SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&',- 1 ), NULL ) AS COD_NCM_REG_0200,
+            IF
+               ( dw_pis_cofins_saidas.REGISTRO = 'C170', SUBSTRING_INDEX( SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 2 ), 'STG&',- 1 ), NULL ) AS TIPO_ITEM_REG_0200,
+               dw_pis_cofins_saidas.D_ITEM_REG_0200,
+               dw_pis_cofins_saidas.QTD,
+               dw_pis_cofins_saidas.UNID,
+               dw_pis_cofins_saidas.VL_ITEM,
+               dw_pis_cofins_saidas.VL_DESC_ITEM,
+               dw_pis_cofins_saidas.IND_MOV,
+               dw_pis_cofins_saidas.CST_ICMS,
+               dw_pis_cofins_saidas.CFOP,
+                  (
+               SELECT
+                  DESCRICAO
+               FROM
+                  gerencial.tb_cfop
+               WHERE
+                  tb_cfop.CFOP = dw_pis_cofins_saidas.CFOP
+               LIMIT 1 ) AS INF_CFOP,
+               dw_pis_cofins_saidas.COD_NAT,
+               dw_pis_cofins_saidas.VL_BC_ICMS_ITEM,
+               dw_pis_cofins_saidas.ALIQ_ICMS,
+               dw_pis_cofins_saidas.VL_ICMS_ITEM,
+               dw_pis_cofins_saidas.VL_BC_ICMS_ST_ITEM,
+               dw_pis_cofins_saidas.ALIQ_ST,
+               dw_pis_cofins_saidas.VL_ICMS_ST_ITEM,
+               dw_pis_cofins_saidas.IND_APUR,
+               dw_pis_cofins_saidas.CST_IPI,
+               dw_pis_cofins_saidas.COD_ENQ,
+               dw_pis_cofins_saidas.VL_BC_IPI,
+               dw_pis_cofins_saidas.ALIQ_IPI,
+               dw_pis_cofins_saidas.VL_IPI_ITEM,
+               dw_pis_cofins_saidas.CST_PIS,
+               dw_pis_cofins_saidas.VL_BC_PIS,
+               dw_pis_cofins_saidas.ALIQ_PIS,
+               dw_pis_cofins_saidas.QUANT_BC_PIS,
+               dw_pis_cofins_saidas.ALIQ_PIS_QUANT,
+               dw_pis_cofins_saidas.VL_PIS_ITEM,
+               dw_pis_cofins_saidas.CST_COFINS,
+               dw_pis_cofins_saidas.VL_BC_COFINS,
+               dw_pis_cofins_saidas.ALIQ_COFINS,
+               dw_pis_cofins_saidas.QUANT_BC_COFINS,
+               dw_pis_cofins_saidas.ALIQ_COFINS_QUANT,
+               dw_pis_cofins_saidas.VL_COFINS_ITEM,
+               dw_pis_cofins_saidas.COD_CTA,
+               dw_pis_cofins_saidas.CONCILIADO_PISCOFINS,
+               dw_pis_cofins_saidas.ID_EFD_CTRL_REG_0000 
+            FROM
+               `DB_{base}`.dw_pis_cofins_saidas
+            WHERE
+               ID_ITEM IS NOT NULL 
+               {value['DATA_INI']}
+               {value['sql_cfop']}
+               {value['cfop_null']}
+               {value['geraCred']}
+            """
+    elif filtro == 'ambos':
+        sql = f"""
+              SELECT
+               dw_pis_cofins_entradas.ID_ITEM,
+               dw_pis_cofins_entradas.PK,
+               dw_pis_cofins_entradas.DATA_INI,               
+               dw_pis_cofins_entradas.CNPJ_FILIAL,
+               dw_pis_cofins_entradas.REGISTRO,
+               dw_pis_cofins_entradas.IND_ESCRI,
+               dw_pis_cofins_entradas.IND_OPER,
+               dw_pis_cofins_entradas.IND_EMIT,
+               dw_pis_cofins_entradas.COD_PART,
+               SUBSTRING_INDEX( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 2 ), 'STG&',- 1 ) AS RAZAO_PART,
+               SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 1 ) AS CNPJ_PART,
+               (
+               SELECT UF.descricao FROM	gerencial.uf_codigo_sigla AS UF WHERE	UF.codigo = SUBSTR( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&',- 1 ), 1, 2 ) 
+               ) AS UF_PART,
+               dw_pis_cofins_entradas.D_PART_REG_0150,
+               dw_pis_cofins_entradas.COD_MOD,
+               dw_pis_cofins_entradas.COD_SIT,
+               dw_pis_cofins_entradas.SER,
+               dw_pis_cofins_entradas.NUM_DOC,
+               (
+             CASE
+               WHEN dw_pis_cofins_entradas.REGISTRO = 'D100' THEN CONCAT('CTe',dw_pis_cofins_entradas.CHV_NFE)
+               WHEN dw_pis_cofins_entradas.REGISTRO = 'C100' THEN CONCAT('NFe',dw_pis_cofins_entradas.CHV_NFE)
+               WHEN dw_pis_cofins_entradas.REGISTRO = 'C190' THEN CONCAT('NFe',dw_pis_cofins_entradas.CHV_NFE)
+               ELSE dw_pis_cofins_entradas.CHV_NFE
+               END
+               ) as CHV_NFE,
+               dw_pis_cofins_entradas.DT_DOC,
+               dw_pis_cofins_entradas.DT_E_S,
+               dw_pis_cofins_entradas.VL_DOC,
+               dw_pis_cofins_entradas.IND_PGTO,
+               dw_pis_cofins_entradas.VL_DESC,
+               dw_pis_cofins_entradas.VL_ABAT_NT,
+               dw_pis_cofins_entradas.VL_MERC,
+               dw_pis_cofins_entradas.IND_FRT,
+               dw_pis_cofins_entradas.VL_FRT,
+               dw_pis_cofins_entradas.VL_SEG,
+               dw_pis_cofins_entradas.VL_OUT_DA,
+               cast(
+               REPLACE ( dw_pis_cofins_entradas.VL_BC_ICMS, ",", "." ) AS DECIMAL ( 15, 2 )) AS VL_BC_ICMS,
+               cast(
+               REPLACE ( dw_pis_cofins_entradas.VL_ICMS, ",", "." ) AS DECIMAL ( 15, 2 )) AS VL_ICMS,
+               dw_pis_cofins_entradas.VL_BC_ICMS_ST,
+               dw_pis_cofins_entradas.VL_ICMS_ST,
+               dw_pis_cofins_entradas.VL_IPI,
+               dw_pis_cofins_entradas.VL_PIS,
+               dw_pis_cofins_entradas.VL_COFINS,
+               dw_pis_cofins_entradas.VL_PIS_ST,
+               dw_pis_cofins_entradas.VL_COFINS_ST,
+               dw_pis_cofins_entradas.NUM_ITEM,
+               dw_pis_cofins_entradas.COD_ITEM,
+               dw_pis_cofins_entradas.DESCR_COMPL,
+               SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 1 ) AS DESCR_0200,
+            IF
+               ( dw_pis_cofins_entradas.REGISTRO = 'C170', SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&',- 1 ), NULL ) AS COD_NCM_REG_0200,
+            IF
+               ( dw_pis_cofins_entradas.REGISTRO = 'C170', SUBSTRING_INDEX( SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 2 ), 'STG&',- 1 ), NULL ) AS TIPO_ITEM_REG_0200,
+               dw_pis_cofins_entradas.D_ITEM_REG_0200,
+               dw_pis_cofins_entradas.QTD,
+               dw_pis_cofins_entradas.UNID,
+               dw_pis_cofins_entradas.VL_ITEM,
+               dw_pis_cofins_entradas.VL_DESC_ITEM,
+               dw_pis_cofins_entradas.IND_MOV,
+               dw_pis_cofins_entradas.CST_ICMS,
+               dw_pis_cofins_entradas.CFOP,                
+                (
+               SELECT
+                  DESCRICAO
+               FROM
+                  gerencial.tb_cfop
+               WHERE
+                  tb_cfop.CFOP = dw_pis_cofins_entradas.CFOP
+               LIMIT 1 ) AS INF_CFOP,
+               dw_pis_cofins_entradas.COD_NAT,
+               dw_pis_cofins_entradas.VL_BC_ICMS_ITEM,
+               dw_pis_cofins_entradas.ALIQ_ICMS,
+               dw_pis_cofins_entradas.VL_ICMS_ITEM,
+               dw_pis_cofins_entradas.VL_BC_ICMS_ST_ITEM,
+               dw_pis_cofins_entradas.ALIQ_ST,
+               dw_pis_cofins_entradas.VL_ICMS_ST_ITEM,
+               dw_pis_cofins_entradas.IND_APUR,
+               dw_pis_cofins_entradas.CST_IPI,
+               dw_pis_cofins_entradas.COD_ENQ,
+               dw_pis_cofins_entradas.VL_BC_IPI,
+               dw_pis_cofins_entradas.ALIQ_IPI,
+               dw_pis_cofins_entradas.VL_IPI_ITEM,
+               dw_pis_cofins_entradas.CST_PIS,
+               dw_pis_cofins_entradas.VL_BC_PIS,
+               dw_pis_cofins_entradas.ALIQ_PIS,
+               dw_pis_cofins_entradas.QUANT_BC_PIS,
+               dw_pis_cofins_entradas.ALIQ_PIS_QUANT,
+               dw_pis_cofins_entradas.VL_PIS_ITEM,
+               dw_pis_cofins_entradas.CST_COFINS,
+               dw_pis_cofins_entradas.VL_BC_COFINS,
+               dw_pis_cofins_entradas.ALIQ_COFINS,
+               dw_pis_cofins_entradas.QUANT_BC_COFINS,
+               dw_pis_cofins_entradas.ALIQ_COFINS_QUANT,
+               dw_pis_cofins_entradas.VL_COFINS_ITEM,
+               dw_pis_cofins_entradas.COD_CTA,
+               dw_pis_cofins_entradas.CONCILIADO_PISCOFINS,
+               dw_pis_cofins_entradas.ID_EFD_CTRL_REG_0000 
+            FROM
+               `DB_{base}`.dw_pis_cofins_entradas
+            WHERE
+               ID_ITEM IS NOT NULL 
+               {value['DATA_INI']}
+               {value['sql_cfop']}
+               {value['cfop_null']}
+               {value['geraCred']}
+                UNION
+             SELECT
+               dw_pis_cofins_saidas.ID_ITEM,
+               dw_pis_cofins_saidas.PK,
+               dw_pis_cofins_saidas.DATA_INI,
+               dw_pis_cofins_saidas.CNPJ_FILIAL,
+               dw_pis_cofins_saidas.REGISTRO,
+               dw_pis_cofins_saidas.IND_ESCRI,
+               dw_pis_cofins_saidas.IND_OPER,
+               dw_pis_cofins_saidas.IND_EMIT,
+               dw_pis_cofins_saidas.COD_PART,
+               SUBSTRING_INDEX( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 2 ), 'STG&',- 1 ) AS RAZAO_PART,
+               SUBSTRING_INDEX( D_PART_REG_0150, 'STG&', 1 ) AS CNPJ_PART,
+               (
+               SELECT UF.descricao FROM	gerencial.uf_codigo_sigla AS UF WHERE	UF.codigo = SUBSTR( SUBSTRING_INDEX( D_PART_REG_0150, 'STG&',- 1 ), 1, 2 ) 
+               ) AS UF_PART,
+               dw_pis_cofins_saidas.D_PART_REG_0150,
+               dw_pis_cofins_saidas.COD_MOD,
+               dw_pis_cofins_saidas.COD_SIT,
+               dw_pis_cofins_saidas.SER,
+               dw_pis_cofins_saidas.NUM_DOC,
+               dw_pis_cofins_saidas.CHV_NFE,
+               dw_pis_cofins_saidas.DT_DOC,
+               dw_pis_cofins_saidas.DT_E_S,
+               dw_pis_cofins_saidas.VL_DOC,
+               dw_pis_cofins_saidas.IND_PGTO,
+               dw_pis_cofins_saidas.VL_DESC,
+               dw_pis_cofins_saidas.VL_ABAT_NT,
+               dw_pis_cofins_saidas.VL_MERC,
+               dw_pis_cofins_saidas.IND_FRT,
+               dw_pis_cofins_saidas.VL_FRT,
+               dw_pis_cofins_saidas.VL_SEG,
+               dw_pis_cofins_saidas.VL_OUT_DA,
+               cast(
+               REPLACE ( dw_pis_cofins_saidas.VL_BC_ICMS, ",", "." ) AS DECIMAL ( 15, 2 )) AS VL_BC_ICMS,
+               cast(
+               REPLACE ( dw_pis_cofins_saidas.VL_ICMS, ",", "." ) AS DECIMAL ( 15, 2 )) AS VL_ICMS,
+               dw_pis_cofins_saidas.VL_BC_ICMS_ST,
+               dw_pis_cofins_saidas.VL_ICMS_ST,
+               dw_pis_cofins_saidas.VL_IPI,
+               dw_pis_cofins_saidas.VL_PIS,
+               dw_pis_cofins_saidas.VL_COFINS,
+               dw_pis_cofins_saidas.VL_PIS_ST,
+               dw_pis_cofins_saidas.VL_COFINS_ST,
+               dw_pis_cofins_saidas.NUM_ITEM,
+               dw_pis_cofins_saidas.COD_ITEM,
+               dw_pis_cofins_saidas.DESCR_COMPL,
+               SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 1 ) AS DESCR_0200,
+            IF
+               ( dw_pis_cofins_saidas.REGISTRO = 'C170', SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&',- 1 ), NULL ) AS COD_NCM_REG_0200,
+            IF
+               ( dw_pis_cofins_saidas.REGISTRO = 'C170', SUBSTRING_INDEX( SUBSTRING_INDEX( D_ITEM_REG_0200, 'STG&', 2 ), 'STG&',- 1 ), NULL ) AS TIPO_ITEM_REG_0200,
+               dw_pis_cofins_saidas.D_ITEM_REG_0200,
+               dw_pis_cofins_saidas.QTD,
+               dw_pis_cofins_saidas.UNID,
+               dw_pis_cofins_saidas.VL_ITEM,
+               dw_pis_cofins_saidas.VL_DESC_ITEM,
+               dw_pis_cofins_saidas.IND_MOV,
+               dw_pis_cofins_saidas.CST_ICMS,
+               dw_pis_cofins_saidas.CFOP,
+                  (
+               SELECT
+                  DESCRICAO
+               FROM
+                  gerencial.tb_cfop
+               WHERE
+                  tb_cfop.CFOP = dw_pis_cofins_saidas.CFOP
+               LIMIT 1 ) AS INF_CFOP,
+               dw_pis_cofins_saidas.COD_NAT,
+               dw_pis_cofins_saidas.VL_BC_ICMS_ITEM,
+               dw_pis_cofins_saidas.ALIQ_ICMS,
+               dw_pis_cofins_saidas.VL_ICMS_ITEM,
+               dw_pis_cofins_saidas.VL_BC_ICMS_ST_ITEM,
+               dw_pis_cofins_saidas.ALIQ_ST,
+               dw_pis_cofins_saidas.VL_ICMS_ST_ITEM,
+               dw_pis_cofins_saidas.IND_APUR,
+               dw_pis_cofins_saidas.CST_IPI,
+               dw_pis_cofins_saidas.COD_ENQ,
+               dw_pis_cofins_saidas.VL_BC_IPI,
+               dw_pis_cofins_saidas.ALIQ_IPI,
+               dw_pis_cofins_saidas.VL_IPI_ITEM,
+               dw_pis_cofins_saidas.CST_PIS,
+               dw_pis_cofins_saidas.VL_BC_PIS,
+               dw_pis_cofins_saidas.ALIQ_PIS,
+               dw_pis_cofins_saidas.QUANT_BC_PIS,
+               dw_pis_cofins_saidas.ALIQ_PIS_QUANT,
+               dw_pis_cofins_saidas.VL_PIS_ITEM,
+               dw_pis_cofins_saidas.CST_COFINS,
+               dw_pis_cofins_saidas.VL_BC_COFINS,
+               dw_pis_cofins_saidas.ALIQ_COFINS,
+               dw_pis_cofins_saidas.QUANT_BC_COFINS,
+               dw_pis_cofins_saidas.ALIQ_COFINS_QUANT,
+               dw_pis_cofins_saidas.VL_COFINS_ITEM,
+               dw_pis_cofins_saidas.COD_CTA,
+               dw_pis_cofins_saidas.CONCILIADO_PISCOFINS,
+               dw_pis_cofins_saidas.ID_EFD_CTRL_REG_0000 
+            FROM
+               `DB_{base}`.dw_pis_cofins_saidas
+            WHERE
+               ID_ITEM IS NOT NULL 
+               {value['DATA_INI']}
+               {value['sql_cfop']}
+               {value['cfop_null']}
+               {value['geraCred']}
+                """
+    try:
+        msg = f'Conectando Select'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)   
+        
+        with engine.connect() as conn:
+            
+            msg = f'Preparando Select, pode demorar'
+            if notify(f'{msg}', WS, rs) == False: 
+                WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+                notify(f'{msg}', WS, rs)   
+            
+            df1 = pd.read_sql_query(sql, conn)
+            
+            msg = f'Select Transformada'
+            if notify(f'{msg}', WS, rs) == False: 
+                WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+                notify(f'{msg}', WS, rs) 
+    except Exception as e:
+        raise e
+        
+    df1.fillna(0, inplace=True)
+
+    arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
+
+    if len(rs.get('data_ini')) > 0:
+        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.xlsx'
+
+    urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
+
+    msg = f'criando o arquivo'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
+
+    if len(df1) > 1000000:
+        msg_ = {
+            'message': 'Hello world',
+            'id_user' : rs.get('userId'),
+            'msg': f'[{rs.get("page")}] - Total de Registros: {len(df1)}, precisa diminuir mais para gerar o excel'
+        }
+        raise msg_ 
+    else:
+        try:
+            listSheet = []
+            x = df1['CNPJ_FILIAL'].unique()            
+
+            # Create a workbook and add a worksheet.
+            workbook = xlsxwriter.Workbook(urlxls)
+            merge_format = workbook.add_format({
+                            'bold': 1,
+                            'border': 1,
+                            'align': 'center',
+                            'valign': 'vcenter'})     
+            
+            fx = df1.reset_index()
+            del df1
+            fx.index += 1 
+            fx.drop(columns='index', inplace=True)
+
+            msg = f'criando o arquivo, pode demorar...'
+            if notify(f'{msg}', WS, rs) == False: 
+                WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+                notify(f'{msg}', WS, rs)
+            
+            if eval(str(rs.get('sheet'))):
+                for i in x:
+                    sh = fx[fx['CNPJ_FILIAL'] == i]
+                    listSheet.append( { "wk" : workbook.add_worksheet(str(i)), "sh" : sh })
+                for idx in listSheet:                    
+                    for z in range(0,len(idx['sh'].columns)):
+                        idx['wk'].write(0, z, list(idx['sh'].columns)[z],merge_format)
+                    
+                    for index, row in idx['sh'].iterrows():    
+                        for k, v in enumerate(list(row)):
+                            idx['wk'].write(0+index, k, v)
+                        
+                for column in idx['sh']:
+                    value = idx['sh'][column].astype(str).map(len).max()    
+
+                    if value > 50:   
+                        column_width = len(column)
+                    else:
+                        column_width = max(value+5, len(column))
+                        
+                    col_idx = idx['sh'].columns.get_loc(column)
+                    idx['wk'].set_column(col_idx, col_idx, column_width)
+            else:
+                worksheet = workbook.add_worksheet()
+                merge_format = workbook.add_format({
+                'bold': 1,
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter'})
+                for z in range(0,len(fx.columns)):
+                    worksheet.write(0, z, list(fx.columns)[z],merge_format)
+                    
+                for index, row in fx.iterrows():    
+                    for k, v in enumerate(list(row)):
+                        worksheet.write(0+index, k, v)
+                        
+                for column in fx:
+                    value = fx[column].astype(str).map(len).max()    
+
+                    if value > 50:   
+                        column_width = len(column)
+                    else:
+                        column_width = max(value+5, len(column))
+                        
+                    col_idx = fx.columns.get_loc(column)
+                    worksheet.set_column(col_idx, col_idx, column_width)
+                
+            workbook.close()
+        except Exception as e:
+            raise e 
+       
+        msg = f'preparando o Link, pode demorar'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
+
+        rs['nome_arquivo'] = arq_excel   
+        rs['total_registros'] = len(fx)
+
+        msg = f'Retornando a MSG'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
+
+        msg_ = {
+            "data": "Criado com Sucesso",
+            "userId" : f"{rs['userId']}",
+            "page": f"{rs['page']}",
+            "erro" : 0,
+            "link" : 1,
+            "msg": f"https://stgapi.cf:9993/{arq_excel}",        
+        }
+
+        msg = f'Criado com Sucesso::https://stgapi.cf:9993/{arq_excel}'
+        if notify(f'{msg}', WS, rs) == False: 
+            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            notify(f'{msg}', WS, rs)
+
+        ren(rs,'id_user', 'userId') 
+        ren(rs,'cnpj_conta', 'base') 
+        ren(rs,'cliente', 'nomeEmpresa') 
+        ren(rs,'tipo_relatorio', 'page')         
+        ren(rs,'user_name', 'username')
+        ren(rs,'dados_cfop', 'cfop')
+
+        rs.pop('idEmpresa') 
+        rs.pop('tamanho') 
+
+        try:
+            gravabanco_ctrl_arq_excel(rs)
+        except Exception as e:
+            raise e 
+        
+        return msg_

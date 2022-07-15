@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core import deps
 from models import home_model, user_model, relatorio_model
 from core.auth import autenticar, criar_token_acesso
-from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, apuracao_icms_ipi_task, b_total_icms_ipi_task, balancete_contabil_task, clear_all_locks, excel_checklist_icms_ipi_faltantes_task, notify
+from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, apuracao_icms_ipi_task, b_total_icms_ipi_task, b_total_pis_cofins_task, balancete_contabil_task, clear_all_locks, excel_checklist_icms_ipi_faltantes_task, notify
 from websocket import create_connection
 from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schema
 from fastapi.security import OAuth2PasswordRequestForm
@@ -705,6 +705,73 @@ async def xlsx_b_total_icms_ipi(info : Request, background_tasks: BackgroundTask
             "rst": "2"
         }     
 
+# POST Relatorio excel_b_total_pis_cofins
+@router.post('/excel_b_total_pis_cofins/')
+async def xlsx_b_total_pis_cofins(info : Request, background_tasks: BackgroundTasks, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user)):
+    global url_ws, WS    
+    dados = await info.json()
+    dados = json.loads(dados['post_data'])
+    dados = dict(dados)
+    base = dados.get('base')
+    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+    try:        
+        task = b_total_pis_cofins_task.delay(dados)
+
+        await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
+            "title": f"O Sistema gerou um arquivo em formato Excel",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+            "arquivo" : task.get()['msg']
+        })
+
+        clear_all_locks()
+
+        return {
+            "erro": False, 
+            "page": f"{dados.get('page')}",
+            "rst": "2",
+            "userId": f"{dados.get('userId')}",
+            "msg":  str(task.get())
+        }     
+    except Exception as e:
+        WSs = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        await send_email_async("Erro no Sistema", dados.get('email'), {
+            "title": f"Ocorreu um erro: { e.args[0] }",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+        })        
+
+        print('erro aqui')
+
+        t =  re.sub('\W+', '', e.args[0])
+
+        x = {
+        "data": f"Ocorreu um erro: { t }",
+        "userId": f"{dados.get('userId')}",
+        "page": f"{dados.get('page')}",
+        "erro" : 1
+        }
+
+        msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WSs.send(msg)
+        except:
+            WSs = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WSs.send(msg)
+
+        return {
+            "erro": "sim", 
+            "data": "data",
+            "rst": "2"
+        }     
+
+
 
 # POST All Relatorios
 @router.post('/checklist_icms_ipi_faltantes/')
@@ -944,6 +1011,157 @@ async def b_total_icms_ipi(info : Request, current_user:  usuario_schema.AuthUse
             tb_cfop.CFOP as ID
         FROM
             gerencial.tb_cfop     
+            """
+        result = await session.execute(sa.text(sql))
+        df1 = pd.DataFrame(data=result.fetchall())
+
+        df2 = pd.merge(df_linhas,df1, how='left', left_on='CFOP', right_on='ID')
+        df2.fillna(0, inplace=True)
+        df2.drop(columns='ID', inplace=True)
+
+        sql = f"""             
+            SELECT cfop FROM `gerencial`.`cfop_credito`;
+        """
+        result = await session.execute(sa.text(sql))
+        df_ = pd.DataFrame(data=result.fetchall())
+
+        df2['GERADOR_CRED_PVA'] = df2['CFOP'].apply(lambda x: x in list(df_['cfop']))
+        df2['GERADOR_CRED_PVA'] = df2['GERADOR_CRED_PVA'].replace(True,'SIM')
+        df2['GERADOR_CRED_PVA'] = df2['GERADOR_CRED_PVA'].replace(False,'NÃO')
+
+        result = df2.to_json(orient="split")
+        parsed = json.loads(result)
+               
+        return { 
+            "erro": False,
+            "data": parsed,
+            "rst": str(len(rst2))            
+        }
+
+
+# POST All Relatorios
+@router.post('/b_total_pis_cofins/')
+# @cache(expire=60)
+async def b_total_pis_cofins(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    async with db as session:
+        dados = await info.json()
+        dados = json.loads(dados['post_data'])
+        base = dados.get('base')
+        
+        value = {
+            'DATA_INI' : '',
+            'UF_FILIAL' : '',
+            'CNPJ_FILIAL' : '',
+            'CST' : ''
+        }
+
+        if len(dados.get('data_ini')) > 0 and len(dados.get('data_fim')) > 0:
+            value['DATA_INI'] = f""" 
+                AND DATA_INI 
+                BETWEEN '{ convertData(dados.get('data_ini'))}' AND '{ convertData(dados.get('data_fim'))}' 
+            """
+
+        if len(dados.get('cst')) > 0:
+            value['CST'] = f" AND CST_ICMS = {dados.get('cst')[0]}" if len(dados.get('cst')) == 1 else f" AND CST_ICMS in {str(tuple(dados.get('cst')))}"
+
+        if len(dados.get('uf')) > 0:
+            value['UF_FILIAL'] = f"  AND UF_FILIAL = '{str(dados.get('uf'))}' "
+
+        if len(dados.get('cnpj_filial')) > 0:
+
+            quebra_cnpj = dados.get('cnpj_filial').split(',')
+            value['CNPJ_FILIAL'] = f" AND `CNPJ_FILIAL` = '{str(dados.get('cnpj_filial'))}'"
+
+            if len(quebra_cnpj) > 1:
+                value['CNPJ_FILIAL'] = f" AND `CNPJ_FILIAL` IN {str(tuple([ str(x) for x in quebra_cnpj]))}"        
+
+        sql = f"""
+        SELECT
+                ID_ITEM,
+                VL_ITEM,
+                CFOP,
+                CNPJ_FILIAL 
+            FROM
+                `DB_{base}`.dw_pis_cofins_entradas
+            WHERE
+                ID_ITEM IS NOT NULL 
+                {value['DATA_INI']}                 
+                {value['CNPJ_FILIAL']}
+                {value['CST']}
+        """ 
+
+        if dados.get('filtrEntradaSaida') == 'ambos':
+            sql = f"""        
+             SELECT
+                ID_ITEM,
+                VL_ITEM,
+                CFOP,
+                CNPJ_FILIAL
+            FROM
+                `DB_{base}`.dw_pis_cofins_entradas
+            WHERE
+                ID_ITEM IS NOT NULL
+                {value['DATA_INI']}                 
+                {value['CNPJ_FILIAL']}
+                {value['CST']}
+            UNION
+            SELECT
+                ID_ITEM,
+                VL_ITEM,
+                CFOP,
+                CNPJ_FILIAL
+            FROM
+                `DB_{base}`.dw_pis_cofins_saidas
+            WHERE
+                ID_ITEM IS NOT NULL 
+                {value['DATA_INI']}                
+                {value['CNPJ_FILIAL']}  
+                {value['CST']}          
+            """
+        elif dados.get('filtrEntradaSaida') == 'saida':
+            sql = f"""        
+            SELECT
+                ID_ITEM,
+                VL_ITEM,
+                CFOP,
+                CNPJ_FILIAL
+            FROM
+                 `DB_{base}`.dw_pis_cofins_saidas
+            WHERE
+                ID_ITEM IS NOT NULL
+                {value['DATA_INI']}                 
+                {value['CNPJ_FILIAL']}
+                {value['CST']}
+            """
+
+        result = await session.execute(sa.text(sql)) 
+
+        rst2 = pd.DataFrame(data=result.fetchall())
+        if len(rst2) == 0: return { 
+            "erro": True,
+            "data": "Sem dados",
+            "rst": str(len(result.fetchall()))            
+        }
+        rst2['CFOP'].fillna('9999', inplace=True)
+
+        df_linhas = pd.DataFrame()
+
+        vl_item =  rst2.groupby(rst2['CFOP'])['VL_ITEM'].sum()
+        qtd_linhas  = rst2.groupby(rst2['CFOP'])['VL_ITEM'].count()
+
+        df_linhas['NULL'] = 'null'
+        df_linhas['CFOP'] = qtd_linhas.index
+        df_linhas['VL_ITEM'] = vl_item.values
+        df_linhas['QTD_LINHAS'] = qtd_linhas.values
+        df_linhas['PROPOR_VALOR'] = list(map('{:.2f}%'.format,( qtd_linhas.values / qtd_linhas.sum())))
+        df_linhas['PROPOR_LINHAS'] = list(map('{:.2f}%'.format,( vl_item.values / vl_item.sum())))
+
+        sql = f"""             
+        SELECT
+            tb_cfop.CFOP AS ID, 
+            gerencial.tb_cfop.PIS_COFINS
+        FROM
+            gerencial.tb_cfop
             """
         result = await session.execute(sa.text(sql))
         df1 = pd.DataFrame(data=result.fetchall())
