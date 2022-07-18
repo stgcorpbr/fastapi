@@ -2506,12 +2506,22 @@ def b_total_pis_cofins_task(rs):
                 for z in range(0,len(fx.columns)):
                     worksheet.write(0, z, list(fx.columns)[z],merge_format)
                     
+                msg = f'escrevendo XlS, pode demorar...'
+                if notify(f'{msg}', WS, rs) == False: 
+                    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+                    notify(f'{msg}', WS, rs)
+                
                 for index, row in fx.iterrows():    
                     for k, v in enumerate(list(row)):
                         worksheet.write(0+index, k, v)
                         msg = f'escrevendo XlS, {k}, {row}'
                         print(msg)
-                        
+
+                msg = f'organizando Colunas, pode demorar...'
+                if notify(f'{msg}', WS, rs) == False: 
+                    WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+                    notify(f'{msg}', WS, rs)
+
                 for column in fx:
                     value = fx[column].astype(str).map(len).max()    
 
