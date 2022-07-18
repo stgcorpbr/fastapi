@@ -2509,10 +2509,9 @@ def b_total_pis_cofins_task(rs):
                 for index, row in fx.iterrows():    
                     for k, v in enumerate(list(row)):
                         worksheet.write(0+index, k, v)
-                        msg = f'escrevendo XlS, {k}'
-                        if notify(f'{msg}', WS, rs) == False: 
-                            WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
-                            notify(f'{msg}', WS, rs)
+                    msg = f'escrevendo XlS, {k}, {row}'
+                    print(msg)
+                        
                         
                 for column in fx:
                     value = fx[column].astype(str).map(len).max()    
@@ -2524,10 +2523,8 @@ def b_total_pis_cofins_task(rs):
                     col_idx = fx.columns.get_loc(column)
 
                     msg = f'organizando colunas XlS, {column}, {col_idx}'
-                    if notify(f'{msg}', WS, rs) == False: 
-                        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
-                        notify(f'{msg}', WS, rs)                        
-
+                    print(msg)
+                    
                     worksheet.set_column(col_idx, col_idx, column_width)                
             workbook.close()
         except Exception as e:
