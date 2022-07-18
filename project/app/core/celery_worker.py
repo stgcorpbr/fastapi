@@ -2526,8 +2526,7 @@ def b_total_pis_cofins_task(rs):
                         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
                         notify(f'{msg}', WS, rs)                        
 
-                    worksheet.set_column(col_idx, col_idx, column_width)
-                
+                    worksheet.set_column(col_idx, col_idx, column_width)                
             workbook.close()
         except Exception as e:
             raise e 
