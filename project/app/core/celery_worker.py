@@ -1963,7 +1963,7 @@ def b_total_pis_cofins_task(rs):
         notify(f'{msg}', WS, rs)
 
     try:
-        engine = create_engine(f"{URL_CONNECT}/DB_{base}")
+        engine = create_engine(f"{URL_CONNECT}/DB_{base}", pool_pre_ping = True)
     except Exception as e:
         raise e    
 
@@ -2509,9 +2509,8 @@ def b_total_pis_cofins_task(rs):
                 for index, row in fx.iterrows():    
                     for k, v in enumerate(list(row)):
                         worksheet.write(0+index, k, v)
-                    msg = f'escrevendo XlS, {k}, {row}'
-                    print(msg)
-                        
+                        msg = f'escrevendo XlS, {k}, {row}'
+                        print(msg)
                         
                 for column in fx:
                     value = fx[column].astype(str).map(len).max()    
@@ -2522,7 +2521,7 @@ def b_total_pis_cofins_task(rs):
                         column_width = max(value+5, len(column))                    
                     col_idx = fx.columns.get_loc(column)
 
-                    msg = f'organizando colunas XlS, {column}, {col_idx}'
+                    msg = f'organizando colunas XlS, {column}, {col_idx}'                    
                     print(msg)
                     
                     worksheet.set_column(col_idx, col_idx, column_width)                
