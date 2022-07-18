@@ -1961,7 +1961,7 @@ def b_total_pis_cofins_task(rs):
         notify(f'{msg}', WS, rs)
 
     try:
-        engine = create_engine(f"{URL_CONNECT}/DB_{base}")
+        engine = create_engine(f"{URL_CONNECT}/DB_{base}", pool_pre_ping = True)
     except Exception as e:
         raise e    
 
