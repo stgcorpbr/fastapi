@@ -1914,6 +1914,8 @@ def b_total_icms_ipi_task(rs):
     
     return msg_
 
+import copy
+
 @celery_.task(base=Singleton)
 def b_total_pis_cofins_task(rs):
     global WS, url_ws   
@@ -1961,7 +1963,7 @@ def b_total_pis_cofins_task(rs):
         notify(f'{msg}', WS, rs)
 
     try:
-        engine = create_engine(f"{URL_CONNECT}/DB_{base}", pool_size=20, max_overflow=0)
+        engine = create_engine(f"{URL_CONNECT}/DB_{base}")
     except Exception as e:
         raise e    
 
@@ -2428,7 +2430,7 @@ def b_total_pis_cofins_task(rs):
     except Exception as e:
         raise e
         
-    df1.fillna(0, inplace=True)
+    # df1.fillna(0, inplace=True)
 
     arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
 

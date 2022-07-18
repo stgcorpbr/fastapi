@@ -748,7 +748,7 @@ async def xlsx_b_total_pis_cofins(info : Request, background_tasks: BackgroundTa
             "nomeEmpresa" : dados.get('nomeEmpresa'),
         })        
 
-        print('erro aqui')
+        print('erro aqui', e)
 
         t =  re.sub('\W+', '', e.args[0])
 
