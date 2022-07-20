@@ -1985,7 +1985,7 @@ def b_total_pis_cofins_task(rs):
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
 
-    workbook = xlsxwriter.Workbook(urlxls)
+    workbook = xlsxwriter.Workbook(urlxls, {'constant_memory': True})
     workbook.use_zip64()
     merge_format = workbook.add_format({
                     'bold': 1,
@@ -2028,8 +2028,12 @@ def b_total_pis_cofins_task(rs):
     rst_fetchall = rst.fetchall()
 
     print('vai entrar no loop ', datetime.now().strftime("%H:%M:%S"))
-    for col in range(0, qtd_col):
-        for row in range(0, qtd_row):
+    # for col in range(0, qtd_col):
+    #     for row in range(0, qtd_row):
+    #         worksheet.write(row, col, rst_fetchall[row][col])
+
+    for row in range(0, qtd_row):
+        for col in range(0, qtd_col):
             worksheet.write(row, col, rst_fetchall[row][col])
     print('saiu do loop', datetime.now().strftime("%H:%M:%S"))
     
