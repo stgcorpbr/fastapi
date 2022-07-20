@@ -1985,7 +1985,7 @@ def b_total_pis_cofins_task(rs):
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
 
-    workbook = xlsxwriter.Workbook(urlxls, {'constant_memory': True})
+    workbook = xlsxwriter.Workbook(urlxls)
     workbook.use_zip64()
     merge_format = workbook.add_format({
                     'bold': 1,
@@ -2007,7 +2007,7 @@ def b_total_pis_cofins_task(rs):
             if notify(f'{msg}', WS, rs) == False: 
                 WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
                 notify(f'{msg}', WS, rs)   
-            
+            print('vai entrar no mysql ', datetime.now().strftime("%H:%M:%S"))
             sql = f"""        
             call gerencial.spr_b_total_pis_cofins("DB_{base}", "{value['sql_cfop']}", "{value['cfop_null']}", "{value['DATA_INI']}", "{value['geraCred']}", "{filtro}")
             """
@@ -2015,7 +2015,7 @@ def b_total_pis_cofins_task(rs):
             rst = conn.execute(sql)
     except Exception as e:
         raise e
-                
+    print('saiu do mysql ', datetime.now().strftime("%H:%M:%S"))
     iter_obj = iter(rst)
 
     for z in range(0,len(list(rst.keys()))):
@@ -2027,11 +2027,11 @@ def b_total_pis_cofins_task(rs):
     qtd_col = len(rst.keys())
     rst_fetchall = rst.fetchall()
 
-    print('vai entrar no loop ', datetime.now().strftime("%d%m%Y%H%M%S"))
-    for row in range(0, qtd_row):
-        for col in range(0, qtd_col):
+    print('vai entrar no loop ', datetime.now().strftime("%H:%M:%S"))
+    for col in range(0, qtd_col):
+        for row in range(0, qtd_row):
             worksheet.write(row, col, rst_fetchall[row][col])
-    print('saiu do loop', datetime.now().strftime("%d%m%Y%H%M%S"))
+    print('saiu do loop', datetime.now().strftime("%H:%M:%S"))
     
     # del rst
     # print('vai entrar no while')
@@ -2050,9 +2050,9 @@ def b_total_pis_cofins_task(rs):
     if notify(f'{msg}', WS, rs) == False: 
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
-    print('criando arquivo', datetime.now().strftime("%d%m%Y%H%M%S"))
+    print('criando arquivo', datetime.now().strftime("%H:%M:%S"))
     workbook.close()
-    print('arquivo criado', datetime.now().strftime("%d%m%Y%H%M%S"))
+    print('arquivo criado', datetime.now().strftime("%H:%M:%S"))
     rs['nome_arquivo'] = arq_excel   
     rs['total_registros'] = qtd
 
