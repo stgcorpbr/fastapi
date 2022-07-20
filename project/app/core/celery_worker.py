@@ -2016,11 +2016,11 @@ def b_total_pis_cofins_task(rs):
     except Exception as e:
         raise e
     print('saiu do mysql ', datetime.now().strftime("%H:%M:%S"))
-    iter_obj = iter(rst)
+    # iter_obj = iter(rst)
 
     for z in range(0,len(list(rst.keys()))):
         worksheet.write(0, z, list(rst.keys())[z], merge_format)
-    int_col = 0
+    # int_col = 0
     qtd = rst.rowcount
 
     qtd_row = rst.rowcount
