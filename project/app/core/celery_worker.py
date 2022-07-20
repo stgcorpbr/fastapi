@@ -1914,8 +1914,8 @@ def b_total_icms_ipi_task(rs):
     
     return msg_
 
-import copy
-import numba as nb
+# import copy
+# import numba as nb
 
 @celery_.task(base=Singleton)
 def b_total_pis_cofins_task(rs):
@@ -2018,15 +2018,19 @@ def b_total_pis_cofins_task(rs):
     print('saiu do mysql ', datetime.now().strftime("%H:%M:%S"))
     # iter_obj = iter(rst)
 
+    print('vai colocar colunas', datetime.now().strftime("%H:%M:%S"))
     for z in range(0,len(list(rst.keys()))):
+        print(z)
         worksheet.write(0, z, list(rst.keys())[z], merge_format)
+    print('acabou de colocar colunas', datetime.now().strftime("%H:%M:%S"))
     # int_col = 0
     qtd = rst.rowcount
 
     qtd_row = rst.rowcount
     qtd_col = len(rst.keys())
+    print('cria variável', datetime.now().strftime("%H:%M:%S"))
     rst_fetchall = rst.fetchall()
-
+    print('variável criada', datetime.now().strftime("%H:%M:%S"))
     print('vai entrar no loop ', datetime.now().strftime("%H:%M:%S"))
     # for col in range(0, qtd_col):
     #     for row in range(0, qtd_row):
