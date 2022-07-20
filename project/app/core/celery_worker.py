@@ -1915,6 +1915,7 @@ def b_total_icms_ipi_task(rs):
     return msg_
 
 import copy
+import numba as nb
 
 @celery_.task(base=Singleton)
 def b_total_pis_cofins_task(rs):
@@ -1984,7 +1985,8 @@ def b_total_pis_cofins_task(rs):
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
 
-    workbook = xlsxwriter.Workbook(urlxls)
+    workbook = xlsxwriter.Workbook(urlxls, {'constant_memory': True})
+    workbook.use_zip64()
     merge_format = workbook.add_format({
                     'bold': 1,
                     'border': 1,
@@ -2020,26 +2022,37 @@ def b_total_pis_cofins_task(rs):
         worksheet.write(0, z, list(rst.keys())[z], merge_format)
     int_col = 0
     qtd = rst.rowcount
-    del rst
-    print('vai entrar no while')
-    while 1:        
-        loopLine = 0
-        int_line = 1
-        try:
-            for k, v in enumerate(next(iter_obj)):            
-                worksheet.write(1+int_col, k, v)                
-        except StopIteration:
-            print('saiu do while')
-            break
-        int_col += 1            
+
+    qtd_row = rst.rowcount
+    qtd_col = len(rst.keys())
+    rst_fetchall = rst.fetchall()
+
+    print('vai entrar no loop ', datetime.now().strftime("%d%m%Y%H%M%S"))
+    for row in range(0, qtd_row):
+        for col in range(0, qtd_col):
+            worksheet.write(row, col, rst_fetchall[row][col])
+    print('saiu do loop', datetime.now().strftime("%d%m%Y%H%M%S"))
+    
+    # del rst
+    # print('vai entrar no while')
+    # while 1:        
+    #     loopLine = 0
+    #     int_line = 1
+    #     try:
+    #         for k, v in enumerate(next(iter_obj)):            
+    #             worksheet.write(1+int_col, k, v)                
+    #     except StopIteration:
+    #         print('saiu do while')
+    #         break
+    #     int_col += 1            
               
     msg = f'preparando o Link, pode demorar'
     if notify(f'{msg}', WS, rs) == False: 
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
-    
+    print('criando arquivo', datetime.now().strftime("%d%m%Y%H%M%S"))
     workbook.close()
-
+    print('arquivo criado', datetime.now().strftime("%d%m%Y%H%M%S"))
     rs['nome_arquivo'] = arq_excel   
     rs['total_registros'] = qtd
 
