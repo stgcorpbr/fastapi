@@ -1976,7 +1976,7 @@ def b_total_pis_cofins_task(rs):
     arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.zip'
 
     if len(rs.get('data_ini')) > 0:
-        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}__{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.zip'
+        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.zip'
 
     urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
 
