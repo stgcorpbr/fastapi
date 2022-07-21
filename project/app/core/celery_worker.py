@@ -1973,10 +1973,10 @@ def b_total_pis_cofins_task(rs):
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
     
-    arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.xlsx'
+    arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.zip'
 
     if len(rs.get('data_ini')) > 0:
-        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.xlsx'
+        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.zip'
 
     urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
 
@@ -1993,9 +1993,9 @@ def b_total_pis_cofins_task(rs):
     #                 'align': 'center',
     #                 'valign': 'vcenter'}) 
     
-
+    print('conectando base', datetime.now().strftime("%H:%M:%S"))
     try:
-        msg = f'Conectando Select'
+        msg = f'Conectando a base'
         if notify(f'{msg}', WS, rs) == False: 
             WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
             notify(f'{msg}', WS, rs)   
@@ -2007,7 +2007,9 @@ def b_total_pis_cofins_task(rs):
             if notify(f'{msg}', WS, rs) == False: 
                 WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
                 notify(f'{msg}', WS, rs)   
+            
             print('vai entrar no mysql ', datetime.now().strftime("%H:%M:%S"))
+            
             sql = f"""        
             call gerencial.spr_b_total_pis_cofins("DB_{base}", "{value['sql_cfop']}", "{value['cfop_null']}", "{value['DATA_INI']}", "{value['geraCred']}", "{filtro}")
             """
@@ -2020,13 +2022,33 @@ def b_total_pis_cofins_task(rs):
     
     qtd_row = rst.rowcount
     
-    print('vai colocar colunas', datetime.now().strftime("%H:%M:%S"))
+    print('adicionando dados ao excel', datetime.now().strftime("%H:%M:%S"))
+
+    msg = f'Adicionando dados ao excel, pode demorar'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)   
 
     wb = Workbook()
     values = [list(rst.keys())] + list(rst.fetchall())
     wb.new_sheet('sheet name', data=values)
     wb.save(urlxls)
-    print('acabou de colocar colunas', datetime.now().strftime("%H:%M:%S"))
+    
+    print('dados no excel ok', datetime.now().strftime("%H:%M:%S"))
+
+    msg = f'preparando o arquivo, pode demorar'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)   
+
+    print('preparando o arquivo', datetime.now().strftime("%H:%M:%S"))
+    os.system(f"zip -F {urlxls} --out {urlxls.replace('zip','xlsx')}")
+    print('preparacao do arquivo finalizada', datetime.now().strftime("%H:%M:%S")) 
+
+    print('limpando memoria', datetime.now().strftime("%H:%M:%S"))
+    os.remove(urlxls)
+    print('limpeza da memoria OK', datetime.now().strftime("%H:%M:%S")) 
+
     # for z in range(0,len(list(rst.keys()))):
     #     print(z)
     #     worksheet.write(0, z, list(rst.keys())[z], merge_format)
@@ -2062,14 +2084,14 @@ def b_total_pis_cofins_task(rs):
     #         break
     #     int_col += 1            
               
-    msg = f'preparando o Link, pode demorar'
+    msg = f'preparando o Link'
     if notify(f'{msg}', WS, rs) == False: 
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
     # print('criando arquivo', datetime.now().strftime("%H:%M:%S"))
     # workbook.close()
     # print('arquivo criado', datetime.now().strftime("%H:%M:%S"))
-    rs['nome_arquivo'] = arq_excel   
+    rs['nome_arquivo'] = arq_excel.replace('zip','xlsx')   
     rs['total_registros'] = qtd_row
 
     msg = f'Retornando a MSG'
