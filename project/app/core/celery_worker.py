@@ -1976,7 +1976,7 @@ def b_total_pis_cofins_task(rs):
     arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}_{dataagora}.zip'
 
     if len(rs.get('data_ini')) > 0:
-        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.zip'
+        arq_excel = f'{rs.get("page")}_{rs.get("base")}_{rs.get("userId")}_{rs.get("username")}__{convertNumber(rs.get("data_ini"))}_{convertNumber(rs.get("data_fim"))}_{dataagora}.zip'
 
     urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
 
@@ -2045,9 +2045,9 @@ def b_total_pis_cofins_task(rs):
     os.system(f"zip -F {urlxls} --out {urlxls.replace('zip','xlsx')}")
     print('preparacao do arquivo finalizada', datetime.now().strftime("%H:%M:%S")) 
 
-    print('limpando memoria', datetime.now().strftime("%H:%M:%S"))
+    print('limpando memoria', urlxls, datetime.now().strftime("%H:%M:%S"))
     os.remove(urlxls)
-    print('limpeza da memoria OK', datetime.now().strftime("%H:%M:%S")) 
+    print('limpeza da memoria OK', urlxls, datetime.now().strftime("%H:%M:%S")) 
     arq_excel = arq_excel.replace('zip','xlsx')
 
     # for z in range(0,len(list(rst.keys()))):
