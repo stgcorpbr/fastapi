@@ -2048,6 +2048,7 @@ def b_total_pis_cofins_task(rs):
     print('limpando memoria', datetime.now().strftime("%H:%M:%S"))
     os.remove(urlxls)
     print('limpeza da memoria OK', datetime.now().strftime("%H:%M:%S")) 
+    arq_excel = arq_excel.replace('zip','xlsx')
 
     # for z in range(0,len(list(rst.keys()))):
     #     print(z)
