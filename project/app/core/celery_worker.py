@@ -1985,13 +1985,13 @@ def b_total_pis_cofins_task(rs):
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
 
-    workbook = xlsxwriter.Workbook(urlxls, {'constant_memory': True})
-    workbook.use_zip64()
-    merge_format = workbook.add_format({
-                    'bold': 1,
-                    'border': 1,
-                    'align': 'center',
-                    'valign': 'vcenter'}) 
+    # workbook = xlsxwriter.Workbook(urlxls, {'constant_memory': True})
+    # workbook.use_zip64()
+    # merge_format = workbook.add_format({
+    #                 'bold': 1,
+    #                 'border': 1,
+    #                 'align': 'center',
+    #                 'valign': 'vcenter'}) 
     
 
     try:
@@ -2000,7 +2000,7 @@ def b_total_pis_cofins_task(rs):
             WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
             notify(f'{msg}', WS, rs)   
 
-        worksheet = workbook.add_worksheet()        
+        # worksheet = workbook.add_worksheet()        
         with engine.connect() as conn: 
                        
             msg = f'Preparando Select, pode demorar'
@@ -2017,29 +2017,37 @@ def b_total_pis_cofins_task(rs):
         raise e
     print('saiu do mysql ', datetime.now().strftime("%H:%M:%S"))
     # iter_obj = iter(rst)
-
-    print('vai colocar colunas', datetime.now().strftime("%H:%M:%S"))
-    for z in range(0,len(list(rst.keys()))):
-        print(z)
-        worksheet.write(0, z, list(rst.keys())[z], merge_format)
-    print('acabou de colocar colunas', datetime.now().strftime("%H:%M:%S"))
-    # int_col = 0
-    qtd = rst.rowcount
-
+    
     qtd_row = rst.rowcount
-    qtd_col = len(rst.keys())
-    print('cria variável', datetime.now().strftime("%H:%M:%S"))
-    rst_fetchall = rst.fetchall()
-    print('variável criada', datetime.now().strftime("%H:%M:%S"))
-    print('vai entrar no loop ', datetime.now().strftime("%H:%M:%S"))
+    
+    print('vai colocar colunas', datetime.now().strftime("%H:%M:%S"))
+
+    wb = Workbook()
+    values = [list(rst.keys())] + list(rst.fetchall())
+    wb.new_sheet('sheet name', data=values)
+    wb.save(urlxls)
+    print('acabou de colocar colunas', datetime.now().strftime("%H:%M:%S"))
+    # for z in range(0,len(list(rst.keys()))):
+    #     print(z)
+    #     worksheet.write(0, z, list(rst.keys())[z], merge_format)
+    
+    # int_col = 0
+    # qtd = rst.rowcount
+
+    # qtd_row = rst.rowcount
+    # qtd_col = len(rst.keys())
+    # print('cria variável', datetime.now().strftime("%H:%M:%S"))
+    # rst_fetchall = rst.fetchall()
+    # print('variável criada', datetime.now().strftime("%H:%M:%S"))
+    # print('vai entrar no loop ', datetime.now().strftime("%H:%M:%S"))
     # for col in range(0, qtd_col):
     #     for row in range(0, qtd_row):
     #         worksheet.write(row, col, rst_fetchall[row][col])
 
-    for row in range(0, qtd_row):
-        for col in range(0, qtd_col):
-            worksheet.write(row, col, rst_fetchall[row][col])
-    print('saiu do loop', datetime.now().strftime("%H:%M:%S"))
+    # for row in range(0, qtd_row):
+    #     for col in range(0, qtd_col):
+    #         worksheet.write(row, col, rst_fetchall[row][col])
+    # print('saiu do loop', datetime.now().strftime("%H:%M:%S"))
     
     # del rst
     # print('vai entrar no while')
@@ -2058,11 +2066,11 @@ def b_total_pis_cofins_task(rs):
     if notify(f'{msg}', WS, rs) == False: 
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
-    print('criando arquivo', datetime.now().strftime("%H:%M:%S"))
-    workbook.close()
-    print('arquivo criado', datetime.now().strftime("%H:%M:%S"))
+    # print('criando arquivo', datetime.now().strftime("%H:%M:%S"))
+    # workbook.close()
+    # print('arquivo criado', datetime.now().strftime("%H:%M:%S"))
     rs['nome_arquivo'] = arq_excel   
-    rs['total_registros'] = qtd
+    rs['total_registros'] = qtd_row
 
     msg = f'Retornando a MSG'
     if notify(f'{msg}', WS, rs) == False: 
