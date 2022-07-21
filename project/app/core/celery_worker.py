@@ -1984,23 +1984,14 @@ def b_total_pis_cofins_task(rs):
     if notify(f'{msg}', WS, rs) == False: 
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
-
-    # workbook = xlsxwriter.Workbook(urlxls, {'constant_memory': True})
-    # workbook.use_zip64()
-    # merge_format = workbook.add_format({
-    #                 'bold': 1,
-    #                 'border': 1,
-    #                 'align': 'center',
-    #                 'valign': 'vcenter'}) 
-    
-    print('conectando base', datetime.now().strftime("%H:%M:%S"))
+   
+    # print('conectando base', datetime.now().strftime("%H:%M:%S"))
     try:
         msg = f'Conectando a base'
         if notify(f'{msg}', WS, rs) == False: 
             WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
             notify(f'{msg}', WS, rs)   
-
-        # worksheet = workbook.add_worksheet()        
+       
         with engine.connect() as conn: 
                        
             msg = f'Preparando Select, pode demorar'
@@ -2008,7 +1999,7 @@ def b_total_pis_cofins_task(rs):
                 WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
                 notify(f'{msg}', WS, rs)   
             
-            print('vai entrar no mysql ', datetime.now().strftime("%H:%M:%S"))
+            # print('vai entrar no mysql ', datetime.now().strftime("%H:%M:%S"))
             
             sql = f"""        
             call gerencial.spr_b_total_pis_cofins("DB_{base}", "{value['sql_cfop']}", "{value['cfop_null']}", "{value['DATA_INI']}", "{value['geraCred']}", "{filtro}")
@@ -2017,12 +2008,11 @@ def b_total_pis_cofins_task(rs):
             rst = conn.execute(sql)
     except Exception as e:
         raise e
-    print('saiu do mysql ', datetime.now().strftime("%H:%M:%S"))
-    # iter_obj = iter(rst)
-    
+    # print('saiu do mysql ', datetime.now().strftime("%H:%M:%S"))
+        
     qtd_row = rst.rowcount
     
-    print('adicionando dados ao excel', datetime.now().strftime("%H:%M:%S"))
+    # print('adicionando dados ao excel', datetime.now().strftime("%H:%M:%S"))
 
     msg = f'Adicionando dados ao excel, pode demorar'
     if notify(f'{msg}', WS, rs) == False: 
@@ -2030,68 +2020,32 @@ def b_total_pis_cofins_task(rs):
         notify(f'{msg}', WS, rs)   
 
     wb = Workbook()
+
     values = [list(rst.keys())] + list(rst.fetchall())
     wb.new_sheet('sheet name', data=values)
     wb.save(urlxls)
     
-    print('dados no excel ok', datetime.now().strftime("%H:%M:%S"))
+    # print('dados no excel ok', datetime.now().strftime("%H:%M:%S"))
 
     msg = f'preparando o arquivo, pode demorar'
     if notify(f'{msg}', WS, rs) == False: 
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)   
 
-    print('preparando o arquivo', datetime.now().strftime("%H:%M:%S"))
+    # print('preparando o arquivo', datetime.now().strftime("%H:%M:%S"))
     os.system(f"zip -F {urlxls} --out {urlxls.replace('zip','xlsx')}")
-    print('preparacao do arquivo finalizada', datetime.now().strftime("%H:%M:%S")) 
+    # print('preparacao do arquivo finalizada', datetime.now().strftime("%H:%M:%S")) 
 
-    print('limpando memoria', urlxls, datetime.now().strftime("%H:%M:%S"))
+    # print('limpando memoria', urlxls, datetime.now().strftime("%H:%M:%S"))
     os.remove(urlxls)
-    print('limpeza da memoria OK', urlxls, datetime.now().strftime("%H:%M:%S")) 
+    # print('limpeza da memoria OK', urlxls, datetime.now().strftime("%H:%M:%S")) 
     arq_excel = arq_excel.replace('zip','xlsx')
-
-    # for z in range(0,len(list(rst.keys()))):
-    #     print(z)
-    #     worksheet.write(0, z, list(rst.keys())[z], merge_format)
-    
-    # int_col = 0
-    # qtd = rst.rowcount
-
-    # qtd_row = rst.rowcount
-    # qtd_col = len(rst.keys())
-    # print('cria variável', datetime.now().strftime("%H:%M:%S"))
-    # rst_fetchall = rst.fetchall()
-    # print('variável criada', datetime.now().strftime("%H:%M:%S"))
-    # print('vai entrar no loop ', datetime.now().strftime("%H:%M:%S"))
-    # for col in range(0, qtd_col):
-    #     for row in range(0, qtd_row):
-    #         worksheet.write(row, col, rst_fetchall[row][col])
-
-    # for row in range(0, qtd_row):
-    #     for col in range(0, qtd_col):
-    #         worksheet.write(row, col, rst_fetchall[row][col])
-    # print('saiu do loop', datetime.now().strftime("%H:%M:%S"))
-    
-    # del rst
-    # print('vai entrar no while')
-    # while 1:        
-    #     loopLine = 0
-    #     int_line = 1
-    #     try:
-    #         for k, v in enumerate(next(iter_obj)):            
-    #             worksheet.write(1+int_col, k, v)                
-    #     except StopIteration:
-    #         print('saiu do while')
-    #         break
-    #     int_col += 1            
               
     msg = f'preparando o Link'
     if notify(f'{msg}', WS, rs) == False: 
         WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
         notify(f'{msg}', WS, rs)
-    # print('criando arquivo', datetime.now().strftime("%H:%M:%S"))
-    # workbook.close()
-    # print('arquivo criado', datetime.now().strftime("%H:%M:%S"))
+    
     rs['nome_arquivo'] = arq_excel.replace('zip','xlsx')   
     rs['total_registros'] = qtd_row
 
