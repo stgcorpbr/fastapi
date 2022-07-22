@@ -436,7 +436,7 @@ async def excel_balancete_contabil(info : Request, background_tasks: BackgroundT
     WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
     try:
         # task = balancete_contabil_task.delay(dados)        
-        task = balancete_contabil_task(dados)        
+        task = balancete_contabil_task.delay(dados)        
         msg = f"""{str(task.get()).replace("'",'"')}"""
         try:
             WS.send(msg)
@@ -1610,7 +1610,7 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
 async def get_empresa_dataIni(base: str, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:        
         
-        f"UPDATE `DB_{base}`.`dw_pis_cofins_entradas` SET `CONCILIADO_PISCOFINS` = NULL;"
+        sql = f"UPDATE `DB_{base}`.`dw_pis_cofins_entradas` SET `CONCILIADO_PISCOFINS` = NULL;"
 
         result = await session.execute(sa.text(sql))
         teste = await session.commit()
