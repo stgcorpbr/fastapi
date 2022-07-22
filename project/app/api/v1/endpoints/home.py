@@ -1604,9 +1604,9 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
             "rst": str(qtd)
         }     
 
+
 # GET zera_conciliacao
 @router.get('/zera_conciliacao/{base}')
-
 async def get_empresa_dataIni(base: str, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
     async with db as session:        
         
