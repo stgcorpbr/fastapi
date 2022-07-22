@@ -141,6 +141,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
 
     if len(rst) < 1000000:
         df = pd.DataFrame(columns=['cnpj', 'data1', 'data2'])
+        
         msg = f'Ok abaixo de 1 milhão OK'
 
         if notify(f'{msg}', WS, rs) == False: 
@@ -249,7 +250,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
 
         urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
 
-        notify(f'Criando o arquivo: {arq_excel}', ws, rs)
+        # notify(f'Criando o arquivo: {arq_excel}', ws, rs)
 
         # Create a workbook and add a worksheet.
         workbook = xlsxwriter.Workbook(urlxls)
