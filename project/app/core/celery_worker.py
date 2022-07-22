@@ -86,6 +86,7 @@ def send_email(email):
     print('dentro da função')
     return mail.core_notification(email)
 
+
 @shared_task
 def excel_checklist_icms_ipi_faltantes_task(rs):
 
@@ -141,7 +142,7 @@ def excel_checklist_icms_ipi_faltantes_task(rs):
     if len(rst) < 1000000:
         df = pd.DataFrame(columns=['cnpj', 'data1', 'data2'])
         msg = f'Ok abaixo de 1 milhão OK'
-        
+
         if notify(f'{msg}', WS, rs) == False: 
             WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
             notify(f'{msg}', WS, rs)
