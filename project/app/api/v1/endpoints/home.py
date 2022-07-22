@@ -8,10 +8,11 @@ import sqlalchemy as sa
 from typing import List
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text,exc
 from core import deps
 from models import home_model, user_model, relatorio_model
 from core.auth import autenticar, criar_token_acesso
-from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, apuracao_icms_ipi_task, b_total_icms_ipi_task, b_total_pis_cofins_task, balancete_contabil_task, clear_all_locks, excel_checklist_icms_ipi_faltantes_task, notify
+from core.celery_worker import ajuste_apuracao_icms_task, apuracao_cred_pis_cofins_task, apuracao_deb_pis_cofins_task, apuracao_icms_ipi_task, b_total_icms_ipi_task, b_total_pis_cofins_task, balancete_contabil_task, clear_all_locks, conciliar_sped_efd_task, excel_checklist_icms_ipi_faltantes_task, notify
 from websocket import create_connection
 from schemas import cliente_schema, base_schema, usuario_schema, relatorio_schema
 from fastapi.security import OAuth2PasswordRequestForm
@@ -772,8 +773,6 @@ async def xlsx_b_total_pis_cofins(info : Request, background_tasks: BackgroundTa
             "rst": "2"
         }     
 
-
-
 # POST All Relatorios
 @router.post('/checklist_icms_ipi_faltantes/')
 @cache(expire=60)
@@ -817,6 +816,182 @@ async def checklist_icms_ipi_faltantes(info : Request, current_user:  usuario_sc
             "data": data_,
             "rst": str(qtd)
         }     
+
+
+# POST All Relatorios
+@router.post('/conciliar_sped_efd/')
+async def conciliar_sped_efd(info : Request, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    dados = await info.json()
+    dados = json.loads(dados['post_data'])
+    base = dados.get('base')
+    async with db as session:
+        sql = f"""
+            UPDATE `DB_{base}`.dw_pis_cofins_entradas
+                INNER JOIN `DB_{base}`.dw_icms_ipi_entradas ON dw_pis_cofins_entradas.CHV_NFE = dw_icms_ipi_entradas.CHV_NFE_CTE 
+                AND dw_pis_cofins_entradas.VL_ITEM = dw_icms_ipi_entradas.VL_ITEM 
+                SET dw_icms_ipi_entradas.CONCILIADO_PISCOFINS = "N_TOMADOS+CHV_NOTA+VL_ITEM",
+                dw_pis_cofins_entradas.CONCILIADO_PISCOFINS = "N_TOMADOS+CHV_NOTA+VL_ITEM" 
+                WHERE
+                    ( dw_pis_cofins_entradas.VL_PIS_ITEM <= 0 OR dw_pis_cofins_entradas.VL_PIS_ITEM IS NULL ) 
+                    AND dw_icms_ipi_entradas.CONCILIADO_PISCOFINS IS NULL 
+                    AND dw_pis_cofins_entradas.CONCILIADO_PISCOFINS IS NULL 
+                    AND dw_pis_cofins_entradas.CHV_NFE IS NOT NULL 
+                    AND dw_icms_ipi_entradas.CHV_NFE_CTE IS NOT NULL;           
+        """ 
+        try:
+            await session.execute(sa.text(sql))
+        except exc.SQLAlchemyError as e:
+            raise e
+
+        sql = f"""
+          UPDATE `DB_{base}`.dw_pis_cofins_entradas
+                INNER JOIN `DB_{base}`.dw_icms_ipi_entradas ON dw_pis_cofins_entradas.CHV_NFE = dw_icms_ipi_entradas.CHV_NFE_CTE 
+                AND dw_pis_cofins_entradas.VL_ITEM = dw_icms_ipi_entradas.VL_ITEM 
+                SET dw_icms_ipi_entradas.CONCILIADO_PISCOFINS = "TOMADOS+CHV_NOTA+VL_ITEM",
+                dw_pis_cofins_entradas.CONCILIADO_PISCOFINS = "TOMADOS+CHV_NOTA+VL_ITEM" 
+                WHERE
+                    dw_pis_cofins_entradas.VL_PIS_ITEM > 0 
+                    AND dw_icms_ipi_entradas.CONCILIADO_PISCOFINS IS NULL 
+                    AND dw_pis_cofins_entradas.CONCILIADO_PISCOFINS IS NULL 
+                    AND dw_pis_cofins_entradas.CHV_NFE IS NOT NULL 
+                    AND dw_icms_ipi_entradas.CHV_NFE_CTE IS NOT NULL;     
+        """ 
+        try:
+            await session.execute(sa.text(sql))
+        except exc.SQLAlchemyError as e:
+            raise e
+
+        sql = f"""
+           UPDATE `DB_{base}`.dw_pis_cofins_entradas
+                INNER JOIN `DB_{base}`.dw_icms_ipi_entradas ON dw_pis_cofins_entradas.CHV_NFE = dw_icms_ipi_entradas.CHV_NFE_CTE 
+                SET dw_icms_ipi_entradas.CONCILIADO_PISCOFINS = "N_TOMADOS+CHV_NOTA",
+                dw_pis_cofins_entradas.CONCILIADO_PISCOFINS = "N_TOMADOS+CHV_NOTA" 
+                WHERE
+                    ( dw_pis_cofins_entradas.VL_PIS_ITEM <= 0 OR dw_pis_cofins_entradas.VL_PIS_ITEM IS NULL ) 
+                    AND dw_icms_ipi_entradas.CONCILIADO_PISCOFINS IS NULL 
+                    AND dw_pis_cofins_entradas.CONCILIADO_PISCOFINS IS NULL 
+                    AND dw_pis_cofins_entradas.CHV_NFE IS NOT NULL 
+                    AND dw_icms_ipi_entradas.CHV_NFE_CTE IS NOT NULL;  
+        """ 
+        try:
+            await session.execute(sa.text(sql))
+        except exc.SQLAlchemyError as e:
+            raise e
+
+        sql = f"""
+           UPDATE `DB_{base}`.dw_pis_cofins_entradas
+            INNER JOIN `DB_{base}`.dw_icms_ipi_entradas ON dw_pis_cofins_entradas.CHV_NFE = dw_icms_ipi_entradas.CHV_NFE_CTE 
+            SET dw_icms_ipi_entradas.CONCILIADO_PISCOFINS = "TOMADOS+CHV_NOTA+VL_ITEM",
+            dw_pis_cofins_entradas.CONCILIADO_PISCOFINS = "TOMADOS+CHV_NOTA+VL_ITEM" 
+            WHERE
+                dw_pis_cofins_entradas.VL_PIS_ITEM > 0 
+                AND dw_icms_ipi_entradas.CONCILIADO_PISCOFINS IS NULL 
+                AND dw_pis_cofins_entradas.CONCILIADO_PISCOFINS IS NULL 
+                AND dw_pis_cofins_entradas.CHV_NFE IS NOT NULL 
+                AND dw_icms_ipi_entradas.CHV_NFE_CTE IS NOT NULL; 
+        """ 
+        try:
+            await session.execute(sa.text(sql))
+        except exc.SQLAlchemyError as e:
+            raise e
+
+
+        sql = f"""
+          UPDATE `DB_{base}`.dw_pis_cofins_entradas
+            INNER JOIN `DB_{base}`.dw_icms_ipi_entradas ON dw_pis_cofins_entradas.COD_PART = dw_icms_ipi_entradas.COD_PART 
+            AND dw_pis_cofins_entradas.NUM_DOC = dw_icms_ipi_entradas.NUM_DOC 
+            AND dw_pis_cofins_entradas.VL_ITEM = dw_icms_ipi_entradas.VL_ITEM 
+            SET dw_icms_ipi_entradas.CONCILIADO_PISCOFINS = "N_TOMADOS+COD_PART+NUM_DOC+VL_ITEM",
+            dw_pis_cofins_entradas.CONCILIADO_PISCOFINS = "N_TOMADOS+COD_PART+NUM_DOC+VL_ITEM" 
+            WHERE
+                ( dw_pis_cofins_entradas.VL_PIS_ITEM <= 0 OR dw_pis_cofins_entradas.VL_PIS_ITEM IS NULL ) 
+                AND dw_pis_cofins_entradas.COD_PART IS NOT NULL 
+                AND dw_icms_ipi_entradas.CONCILIADO_PISCOFINS IS NULL 
+                AND dw_pis_cofins_entradas.CONCILIADO_PISCOFINS IS NULL;
+        """ 
+        try:
+            await session.execute(sa.text(sql))
+        except exc.SQLAlchemyError as e:
+            raise e
+
+        
+        sql = f"""
+          UPDATE `DB_{base}`.dw_pis_cofins_entradas
+            INNER JOIN `DB_{base}`.dw_icms_ipi_entradas ON dw_pis_cofins_entradas.COD_PART = dw_icms_ipi_entradas.COD_PART 
+            AND dw_pis_cofins_entradas.NUM_DOC = dw_icms_ipi_entradas.NUM_DOC 
+            AND dw_pis_cofins_entradas.VL_ITEM = dw_icms_ipi_entradas.VL_ITEM 
+            SET dw_icms_ipi_entradas.CONCILIADO_PISCOFINS = "TOMADOS+COD_PART+NUM_DOC+VL_ITEM",
+            dw_pis_cofins_entradas.CONCILIADO_PISCOFINS = "TOMADOS+COD_PART+NUM_DOC+VL_ITEM" 
+            WHERE
+                dw_pis_cofins_entradas.VL_PIS_ITEM > 0 
+                AND dw_pis_cofins_entradas.COD_PART IS NOT NULL 
+                AND dw_icms_ipi_entradas.CONCILIADO_PISCOFINS IS NULL 
+                AND dw_pis_cofins_entradas.CONCILIADO_PISCOFINS IS NULL
+        """ 
+        try:
+            await session.execute(sa.text(sql))
+        except exc.SQLAlchemyError as e:
+            raise e
+
+        
+    global url_ws
+    
+    try:        
+        task = conciliar_sped_efd_task.delay(dados)
+
+        await return_email_async("Arquivo Gerado pelo Sistema", dados.get('email'), {
+            "title": f"O Sistema gerou um arquivo em formato Excel",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+            "arquivo" : task.get()['msg']
+        })        
+
+        clear_all_locks()
+
+        return {
+            "erro": False, 
+            "page": f"{dados.get('page')}",
+            "rst": 0,
+            "userId": f"{dados.get('userId')}",
+            "msg":  str(task.get())
+        }     
+    except Exception as e:
+        WSs = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        await send_email_async("Erro no Sistema", dados.get('email'), {
+            "title": f"Ocorreu um erro: { e.args[0] }",
+            "page": dados.get('page'),
+            "userId" : dados.get('userId'),
+            "username" : dados.get('username'),
+            "base" : dados.get('base'),
+            "nomeEmpresa" : dados.get('nomeEmpresa'),
+        })        
+
+        print('erro aqui', e)
+
+        t =  re.sub('\W+', '', e.args[0])
+
+        x = {
+        "data": f"Ocorreu um erro: { t }",
+        "userId": f"{dados.get('userId')}",
+        "page": f"{dados.get('page')}",
+        "erro" : 1
+        }
+
+        msg = f"""{str(x).replace("'",'"')}"""
+        try:
+            WSs.send(msg)
+        except:
+            WSs = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+            WSs.send(msg)
+
+        return {
+            "erro": "sim", 
+            "data": "data",
+            "rst": "2"
+        }
 
 
 # POST All Relatorios
@@ -1428,6 +1603,37 @@ async def ajuste_apuracao_icms(info : Request, current_user:  usuario_schema.Aut
             "data": data_,
             "rst": str(qtd)
         }     
+
+# GET zera_conciliacao
+@router.get('/zera_conciliacao/{base}')
+
+async def get_empresa_dataIni(base: str, current_user:  usuario_schema.AuthUserSchema = Depends(deps.get_current_user), db: AsyncSession = Depends(deps.get_session_gerencial)):
+    async with db as session:        
+        
+        f"UPDATE `DB_{base}`.`dw_pis_cofins_entradas` SET `CONCILIADO_PISCOFINS` = NULL;"
+
+        result = await session.execute(sa.text(sql))
+        teste = await session.commit()
+        if result.rowcount > 0:
+            erro = False
+            msg_ = f'Conciliação PIS/COFINS Zerada com Sucesso'
+        else:
+            erro = True
+            msg_ = f'Erro ao Zerar Conciliação PIS/COFINS'
+
+        
+        sql = f"UPDATE `DB_{base}`.`dw_icms_ipi_entradas` SET `CONCILIADO_PISCOFINS` = NULL;"
+
+        result = await session.execute(sa.text(sql))
+        teste = await session.commit()
+        if result.rowcount > 0:
+            erro = False
+            msg_ = f'Conciliação PIS/COFINS Zerada com Sucesso'
+        else:
+            erro = True
+            msg_ = f'Erro ao Zerar Conciliação PIS/COFINS'
+
+        return {"erro": erro, 'data': msg_}
 
 
 # GET data inicial empresa

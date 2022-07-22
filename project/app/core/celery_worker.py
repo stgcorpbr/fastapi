@@ -1200,6 +1200,266 @@ def apuracao_icms_ipi_task(rs):
 
         return msg_
 
+@shared_task
+def conciliar_sped_efd_task(rs):
+    try:
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+    except Exception as e:
+        raise e 
+
+    entrada = convertData(rs.get('data_ini')) if len(rs.get('data_ini')) > 1 else convertData('01-01-2005')
+    saida = convertData(rs.get('data_fim')) if len(rs.get('data_fim')) > 1 else convertData(datetime.now().strftime("%d-%m-%Y"))
+    empresa = rs.get('nomeEmpresa')
+    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")    
+    usuario =  rs.get('username')
+    base =  rs.get('base')
+    id_user = rs.get('userId')    
+    dataagora = datetime.now().strftime("%d%m%Y%H%M%S")
+    page = rs.get('page') 
+
+    try:
+        engine = create_engine(f"{URL_CONNECT}/DB_{base}")
+    except Exception as e:
+        raise e       
+
+    sql =f"""
+                SELECT
+                    "BASE TOTAL ENTRADAS" AS `DESCRIÇÃO`,
+                    CONCAT('{entrada}', " ATÉ ", '{saida}' ) AS REGISTROS_EFD,
+                    CAST(SUM( T.VL_ITEM ) AS DECIMAL ( 16, 2 )) AS TOTAL_EFD,	
+                    NULL AS REGISTROS_SPED,
+                    ( SELECT CAST(SUM( T2.VL_ITEM ) AS DECIMAL ( 16, 2 )) FROM `DB_{base}`.dw_icms_ipi_entradas AS T2 WHERE T2.DATA_INI BETWEEN '{entrada}' AND '{saida}' ) AS TOTAL_SPED 
+                FROM
+                    `DB_{base}`.dw_pis_cofins_entradas AS T 
+                WHERE
+                    T.DATA_INI BETWEEN '{entrada}' 
+                    AND '{saida}' UNION
+                SELECT
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL 
+                UNION
+                SELECT
+                    "A100 SEM CONCILIAR - TOMADO " AS `DESCRIÇÃO`,
+                    NULL AS REGISTROS_EFD,
+                    CAST(SUM( T.VL_ITEM ) AS DECIMAL ( 16, 2 )) AS TOTAL_EFD,
+                    NULL AS REGISTROS_SPED,
+                    NULL AS TOTAL_SPED 
+                FROM
+                    `DB_{base}`.dw_pis_cofins_entradas AS T 
+                WHERE
+                    T.DATA_INI BETWEEN '{entrada}' 
+                    AND '{saida}' 
+                    AND T.REGISTRO = "A100" 
+                    AND T.VL_PIS_ITEM > 0 
+                    AND T.CONCILIADO_PISCOFINS IS NULL UNION
+                SELECT
+                    "A100 SEM CONCILIAR - NÃO TOMADO" AS `DESCRIÇÃO`,
+                    NULL AS REGISTROS_EFD,
+                    CAST(SUM( T.VL_ITEM ) AS DECIMAL ( 16, 2 )) AS TOTAL_EFD,
+                    NULL AS REGISTROS_SPED,
+                    NULL AS TOTAL_SPED 
+                FROM
+                    `DB_{base}`.dw_pis_cofins_entradas AS T 
+                WHERE
+                    T.DATA_INI BETWEEN '{entrada}' 
+                    AND '{saida}' 
+                    AND T.REGISTRO = "A100" 
+                    AND ( T.VL_PIS_ITEM <= 0 OR T.VL_PIS_ITEM IS NULL ) 
+                    AND T.CONCILIADO_PISCOFINS IS NULL UNION
+                SELECT
+                    "F100 SEM CONCILIAR - TOMADO " AS `DESCRIÇÃO`,
+                    NULL AS REGISTROS_EFD,
+                    CAST(SUM( T.VL_ITEM ) AS DECIMAL ( 16, 2 )) AS TOTAL_EFD,
+                    NULL AS REGISTROS_SPED,
+                    NULL AS TOTAL_SPED 
+                FROM
+                    `DB_{base}`.dw_pis_cofins_entradas AS T 
+                WHERE
+                    T.DATA_INI BETWEEN '{entrada}' 
+                    AND '{saida}' 
+                    AND T.REGISTRO = "F100" 
+                    AND T.VL_PIS_ITEM > 0 
+                    AND T.CONCILIADO_PISCOFINS IS NULL UNION
+                SELECT
+                    "F100 SEM CONCILIAR - NÃO TOMADO" AS `DESCRIÇÃO`,
+                    NULL AS REGISTROS_EFD,
+                    CAST(SUM( T.VL_ITEM ) AS DECIMAL ( 16, 2 ))  AS TOTAL_EFD,
+                    NULL AS REGISTROS_SPED,
+                    NULL AS TOTAL_SPED 
+                FROM
+                    `DB_{base}`.dw_pis_cofins_entradas AS T 
+                WHERE
+                    T.DATA_INI BETWEEN '{entrada}' 
+                    AND '{saida}' 
+                    AND T.REGISTRO = "F100" 
+                    AND ( T.VL_PIS_ITEM <= 0 OR T.VL_PIS_ITEM IS NULL ) 
+                    AND T.CONCILIADO_PISCOFINS IS NULL UNION
+                SELECT
+                    "-",
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL UNION
+                SELECT
+                    "DEMAIS REGISTROS SEM CONCILIAR - TOMADO " AS `DESCRIÇÃO`,
+                    GROUP_CONCAT( DISTINCT T.REGISTRO ) AS REGISTROS_EFD,
+                    CAST(SUM( T.VL_ITEM ) AS DECIMAL ( 16, 2 ))  AS TOTAL_EFD,
+                    NULL AS REGISTROS_SPED,
+                    NULL AS TOTAL_SPED 
+                FROM
+                    `DB_{base}`.dw_pis_cofins_entradas AS T 
+                WHERE
+                    T.DATA_INI BETWEEN '{entrada}' 
+                    AND '{saida}' 
+                    AND T.REGISTRO NOT IN ( "F100", "A100" ) 
+                    AND T.VL_PIS_ITEM > 0 
+                    AND T.CONCILIADO_PISCOFINS IS NULL UNION
+                SELECT
+                    "DEMAIS REGISTROS SEM CONCILIAR - NÃO TOMADO" AS `DESCRIÇÃO`,
+                    GROUP_CONCAT( DISTINCT T.REGISTRO ) AS REGISTROS_EFD,
+                    CAST(SUM( T.VL_ITEM ) AS DECIMAL ( 16, 2 ))  AS TOTAL_EFD,
+                    NULL AS REGISTROS_SPED,
+                    NULL AS TOTAL_SPED 
+                FROM
+                    `DB_{base}`.dw_pis_cofins_entradas AS T 
+                WHERE
+                    T.DATA_INI BETWEEN '{entrada}' 
+                    AND '{saida}' 
+                    AND T.REGISTRO NOT IN ( "F100", "A100" ) 
+                    AND ( T.VL_PIS_ITEM <= 0 OR T.VL_PIS_ITEM IS NULL ) 
+                    AND T.CONCILIADO_PISCOFINS IS NULL UNION
+                SELECT
+                    dw_pis_cofins_entradas.CONCILIADO_PISCOFINS,
+                    GROUP_CONCAT( DISTINCT dw_pis_cofins_entradas.REGISTRO ) AS REGISTROS_EFD,
+                    CAST(SUM( dw_pis_cofins_entradas.VL_ITEM ) AS DECIMAL ( 16, 2 ))  AS TOTAL_VL_ITEM_EFD,
+                    GROUP_CONCAT( DISTINCT SPED.REGISTROS ) AS REGISTROS_SPED,
+                    CAST(SPED.TOTAL_VL_ITEM AS DECIMAL ( 16, 2 ))  AS TOTAL_VL_ITEM_SPED 
+                FROM
+                    `DB_{base}`.dw_pis_cofins_entradas
+                    LEFT JOIN (
+                    SELECT
+                        dw_icms_ipi_entradas.CONCILIADO_PISCOFINS,
+                        GROUP_CONCAT( DISTINCT dw_icms_ipi_entradas.REGISTRO ) AS REGISTROS,
+                        CAST(SUM( dw_icms_ipi_entradas.VL_ITEM ) AS DECIMAL ( 16, 2 ))  AS TOTAL_VL_ITEM 
+                    FROM
+                        `DB_{base}`.dw_icms_ipi_entradas 
+                    WHERE
+                        dw_icms_ipi_entradas.CONCILIADO_PISCOFINS IS NOT NULL 
+                        AND dw_icms_ipi_entradas.DATA_INI BETWEEN '{entrada}' 
+                        AND '{saida}' 
+                        GROUP BY#dw_icms_ipi_entradas.REGISTRO,
+                        dw_icms_ipi_entradas.CONCILIADO_PISCOFINS 
+                    ) AS SPED ON dw_pis_cofins_entradas.CONCILIADO_PISCOFINS = SPED.CONCILIADO_PISCOFINS 
+                WHERE
+                    dw_pis_cofins_entradas.CONCILIADO_PISCOFINS IS NOT NULL 
+                    AND dw_pis_cofins_entradas.DATA_INI BETWEEN '{entrada}' 
+                    AND '{saida}' 
+                GROUP BY
+                    dw_pis_cofins_entradas.CONCILIADO_PISCOFINS UNION
+                SELECT
+                    "-",
+                    "-",
+                    "-",
+                    "-",
+                    "-" UNION
+                SELECT
+                    "OPORTUNIDADES" AS `DESCRIÇÃO`,
+                    "CONCILIADOS NÃO TOMADOS EFD" AS REGISTROS_EFD,
+                    CAST(SUM( T.VL_ITEM ) AS DECIMAL ( 16, 2 ))  AS TOTAL_EFD,
+                    "OPORTUNIDADES SPED" AS REGISTROS_SPED,
+                    ( SELECT CAST(SUM( T2.VL_ITEM ) AS DECIMAL ( 16, 2 ))  FROM `DB_{base}`.dw_icms_ipi_entradas AS T2 WHERE T2.DATA_INI BETWEEN '{entrada}' AND '{saida}' AND T2.CONCILIADO_PISCOFINS IS NULL ) AS TOTAL_SPED 
+                FROM
+                    `DB_{base}`.dw_pis_cofins_entradas AS T 
+                WHERE
+                    T.DATA_INI BETWEEN '{entrada}' 
+                    AND '{saida}' 
+                    AND ( T.VL_PIS_ITEM <= 0 OR T.VL_PIS_ITEM IS NULL );
+            """
+        
+    try:
+        with engine.connect() as conn:
+            rst = pd.read_sql_query(sql, conn)
+    except Exception as e:
+        raise e
+    
+    rst.fillna('', inplace=True)
+
+    result = rst.to_json(orient="columns")
+    parsed = json.loads(result)
+    data_json = json.dumps(parsed, indent=4)
+    
+    data = [{'empresa': empresa, 'base': base, 'data_ini': entrada, 'data_hora' : data_hora, 'usuario' : usuario, 'id_user' : id_user, 'json': data_json }]
+    df = pd.DataFrame(data)
+
+    sql = f'''
+        CREATE TABLE IF NOT EXISTS `tb_conciliacao` (
+        `id` int(11) NOT NULL AUTO_INCREMENT,
+        `empresa` varchar(50) DEFAULT NULL,
+        `base` int(8) unsigned zerofill DEFAULT NULL,
+        `data_ini` date DEFAULT NULL,
+        `data_hora` text,
+        `usuario` varchar(50) DEFAULT NULL,
+        `id_user` bigint(3) DEFAULT NULL,
+        `json` json DEFAULT NULL,
+        PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;
+        '''
+    
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(sql))
+    except Exception as e:
+        raise e
+
+    df.to_sql('tb_conciliacao', engine, index=False, if_exists='append')
+    arq_excel = f'{page}_{empresa[0:4]}_{usuario}_{dataagora}.xlsx'
+    
+    urlxls = os.path.join(BASE_DIR, f"media/{arq_excel}") 
+    rs['nome_arquivo'] = arq_excel
+
+    df.drop(columns='json', inplace=True)
+
+    df2 = pd.concat([df, rst], axis=0, ignore_index=True)
+    df2.fillna('', inplace=True)
+
+    wb = Workbook()         
+    values = [df2.columns] + list(df2.values)
+    wb.new_sheet('sheet name', data=values)
+    wb.save(urlxls)
+
+    del df,df2
+
+    msg = f'Criado com Sucesso::https://stgapi.cf:9993/{arq_excel}'
+    if notify(f'{msg}', WS, rs) == False: 
+        WS = create_connection(f"{url_ws}{random.randint(10000, 99999)}")
+        notify(f'{msg}', WS, rs)
+
+    ren(rs,'id_user', 'userId') 
+    ren(rs,'cnpj_conta', 'base') 
+    ren(rs,'cliente', 'nomeEmpresa') 
+    ren(rs,'tipo_relatorio', 'page')         
+    ren(rs,'user_name', 'username')    
+    rs.pop('idEmpresa') 
+
+    try:
+        gravabanco_ctrl_arq_excel(rs)
+    except Exception as e:
+        raise e     
+                        
+    msg_ = {
+        "data": "Criado com Sucesso",
+        "userId" : f"{id_user}",
+        "page": f"{page}",
+        "erro" : 0,
+        "link" : 1,
+        "msg": f"https://stgapi.cf:9993/{arq_excel}",        
+    }
+
+    return msg_
+
 
 @shared_task
 def balancete_contabil_task(rs):
